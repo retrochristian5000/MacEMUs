@@ -1090,13 +1090,17 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "$(inherited)";
 				"OTHER_LDFLAGS[arch=arm64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
 					"-luae_cpu_arm64",
 					"-lmpfr",
 					"-lgmp",
 				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
 					"-luae_cpu_x86_64",
 					"-Wl,-no_pie",
 					"-pagezero_size",
@@ -1200,13 +1204,17 @@
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
-				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS = "$(inherited)";
 				"OTHER_LDFLAGS[arch=arm64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
 					"-luae_cpu_arm64",
 					"-lmpfr",
 					"-lgmp",
 				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
 					"-luae_cpu_x86_64",
 					"-Wl,-no_pie",
 					"-pagezero_size",

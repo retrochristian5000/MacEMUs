@@ -288,7 +288,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "make -f Makefile.gencpu HOST_CPPFLAGS=\"${MACEMUS_HOST_CPPFLAGS:-${HOST_CPPFLAGS:-}}\"\n";
+			shellScript = "make -f Makefile.gencpu HOST_CPPFLAGS=\"${MACEMUS_HOST_CPPFLAGS:-${HOST_CPPFLAGS:-}}\" HOST_LDFLAGS=\"${MACEMUS_HOST_LDFLAGS:-${HOST_LDFLAGS:-}}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

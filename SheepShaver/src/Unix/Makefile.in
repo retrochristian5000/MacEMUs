@@ -23,6 +23,8 @@ CPPFLAGS = @CPPFLAGS@
 override CPPFLAGS += -I../include -I. -I../CrossPlatform -I../slirp
 DEFS = @DEFS@ -D_REENTRANT -DDATADIR=\"$(datadir)/$(APP)\"
 LDFLAGS = @LDFLAGS@
+# Build-host executable generators must not inherit emulator-target linker flags.
+HOST_LDFLAGS ?=
 LIBS = @LIBS@
 SYSSRCS = @SYSSRCS@
 CPUSRCS = @CPUSRCS@
@@ -86,7 +88,7 @@ GUI_APP_APP = $(GUI_APP).app
 PROGS += $(GUI_APP_EXE)
 else
 CXXFLAGS += $(GUI_CFLAGS)
-LIBS += $(GUI_LIBS)
+override LIBS += $(GUI_LIBS)
 endif
 
 ## Rules
@@ -245,7 +247,7 @@ ppc-dyngen-ops-x86_64_macos.hpp: dyngen_precompiled/ppc-dyngen-ops-x86_64_macos.
 else
 # Only GCC is supported for generating synthetic opcodes
 $(DYNGEN): $(DYNGENOBJS)
-	$(DYNGEN_CC) -o $@ $(LDFLAGS) $(DYNGENOBJS)
+	$(DYNGEN_CC) -o $@ $(HOST_LDFLAGS) $(DYNGENOBJS)
 basic-dyngen-ops.hpp: $(OBJ_DIR)/basic-dyngen-ops.o $(DYNGEN)
 	./$(DYNGEN) -o $@ $<
 ppc-dyngen-ops.hpp: $(OBJ_DIR)/ppc-dyngen-ops.o $(DYNGEN)

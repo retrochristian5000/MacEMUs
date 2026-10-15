@@ -171,6 +171,46 @@ the root Makefile intentionally does not rerun Autoconf unexpectedly.
 Neither this change nor `make cppflags-info` verifies successful
 native compilation.
 
+### LDFLAGS: target linking versus build-host tools
+
+The root Makefile now keeps the two linker flag namespaces separate:
+
+```sh
+make linker-info LDFLAGS='-Wl,-dead_strip -L/custom/lib'
+make basilisk LDFLAGS='-L/custom/lib -Wl,-dead_strip'
+make sheepshaver LDFLAGS='-Wl,-dead_strip'
+make basilisk HOST_LDFLAGS='-L/host/tools/lib'
+make test-linker-flags
+```
+
+* `LDFLAGS` belongs to the **emulator executable**. With Xcode it maps
+  to the custom `MACEMUS_LDFLAGS` build setting, appended to the active
+  architecture-specific `OTHER_LDFLAGS` without removing the CPU library
+  or Intel-specific page-zero flags. On Unix/MinGW it stays in the
+  existing `$(LDFLAGS)` link recipes.
+* `HOST_LDFLAGS` is independent. It reaches the build-host CPU-generator
+  links on macOS (via `MACEMUS_HOST_LDFLAGS`) and on Unix. Guest-target
+  flags must not leak into executable generators. The Xcode CPU library
+  projects are static archives, so their ordinary `OTHER_LDFLAGS` are
+  not used like application link flags.
+* Xcode's `OTHER_LDFLAGS[arch=arm64]` and
+  `OTHER_LDFLAGS[arch=x86_64]` both preserve `$(inherited)` and the
+  existing emulator-specific libraries. Use `MACEMUS_LDFLAGS` directly
+  when invoking Xcode; overriding `OTHER_LDFLAGS` outright risks
+  replacing required project flags.
+* Keep linker flags (`-L`, `-Wl,`, `-rpath`) separate from
+  preprocessing (`CPPFLAGS`) and library selections (`LIBS`,
+  Xcode framework references). `LIBS` overrides on Unix are respected
+  while SheepShaver's required GUI libraries remain appended.
+  `-no_pie` and the explicit page-zero flags stay **x86-64 only**.
+
+`make test-linker-flags` exercises Make's dry-run routing without
+Xcode. Full linking and compatibility of native Homebrew libraries
+must still be checked on macOS. Both active Xcode apps still reference
+`SDL2.framework`, so a Homebrew SDL2 dylib is not automatically
+substituted by this flag change. Existing Unix build directories require
+reconfiguration to pick up the revised templates.
+
 ## Existing emulator build instructions
 
 #### BasiliskII

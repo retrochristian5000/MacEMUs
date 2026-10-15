@@ -1337,9 +1337,15 @@
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_CFLAGS = "$(inherited) $(MACEMUS_CPPFLAGS)";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
-				OTHER_LDFLAGS = "";
-				"OTHER_LDFLAGS[arch=arm64]" = "-lkpx_cpu";
+				OTHER_LDFLAGS = "$(inherited)";
+				"OTHER_LDFLAGS[arch=arm64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
+					"-lkpx_cpu",
+				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
 					"-lkpx_cpu",
 					"-pagezero_size",
 					0x3000,
@@ -1414,9 +1420,15 @@
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_CFLAGS = "$(inherited) $(MACEMUS_CPPFLAGS)";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
-				OTHER_LDFLAGS = "";
-				"OTHER_LDFLAGS[arch=arm64]" = "-lkpx_cpu";
+				OTHER_LDFLAGS = "$(inherited)";
+				"OTHER_LDFLAGS[arch=arm64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
+					"-lkpx_cpu",
+				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(MACEMUS_LDFLAGS)",
 					"-lkpx_cpu",
 					"-pagezero_size",
 					0x3000,

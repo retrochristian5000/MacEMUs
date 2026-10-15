@@ -26,6 +26,17 @@ CONFIGURE_ARGS ?=
 # Host generator tools have an independent HOST_CPPFLAGS namespace.
 CPPFLAGS ?=
 HOST_CPPFLAGS ?=
+# Linker driver options, e.g. -Ldir, -Wl,-option and rpath.
+# Never forward target flags to host-side CPU generators.
+LDFLAGS ?=
+HOST_LDFLAGS ?=
+MACEMUS_XCODE_LINK_ARGS :=
+ifneq ($(strip $(LDFLAGS)),)
+MACEMUS_XCODE_LINK_ARGS += MACEMUS_LDFLAGS="$(LDFLAGS)"
+endif
+ifneq ($(strip $(HOST_LDFLAGS)),)
+MACEMUS_XCODE_LINK_ARGS += MACEMUS_HOST_LDFLAGS="$(HOST_LDFLAGS)"
+endif
 MACEMUS_XCODE_CPP_ARGS :=
 ifneq ($(strip $(CPPFLAGS)),)
 MACEMUS_XCODE_CPP_ARGS += MACEMUS_CPPFLAGS="$(CPPFLAGS)"
@@ -126,7 +137,7 @@ endif
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags
 
 all: basilisk sheepshaver
 
@@ -135,25 +146,25 @@ basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) build
 
 sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) build
 
 clean-basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) clean
 
 clean-sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) clean
 
 else
 ifeq ($(MACEMUS_PLATFORM),mingw)
@@ -202,6 +213,16 @@ clean: clean-basilisk clean-sheepshaver
 
 # Diagnose Homebrew without changing installed packages or shell configuration.
 # Inspect flag separation without running configure or the emulator builders.
+# No linker is invoked by this diagnostic.
+linker-info:
+	@printf 'Target LDFLAGS: %s\nHost LDFLAGS: %s\n' '$(LDFLAGS)' '$(HOST_LDFLAGS)'
+	@printf '%s\n' 'Xcode: MACEMUS_LDFLAGS for app linking; MACEMUS_HOST_LDFLAGS for CPU-generator links.'
+	@printf '%s\n' 'Unix: target LDFLAGS for emulator; HOST_LDFLAGS for executable generators.'
+	@printf '%s\n' 'SDL2.framework linkage remains configured separately from Homebrew SDL2 headers.'
+
+test-linker-flags:
+	@./tests/test-linker-flags.sh
+
 cppflags-info:
 	@printf 'Target CPPFLAGS: %s\nHost CPPFLAGS: %s\n' '$(CPPFLAGS)' '$(HOST_CPPFLAGS)'
 	@printf '%s\n' 'Xcode: MACEMUS_CPPFLAGS for target compilation; MACEMUS_HOST_CPPFLAGS for CPU generators.'
@@ -230,6 +251,8 @@ help:
 		'  make clean               Clean both emulator builds' \
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
+		'  make linker-info         Audit target/host LDFLAGS routing' \
+		'  make test-linker-flags   Run non-Xcode linker flag smoke tests' \
 		'  make clean-basilisk      Clean Basilisk II only' \
 		'  make clean-sheepshaver   Clean SheepShaver only' \
 		'' \
@@ -237,4 +260,5 @@ help:
 		'         BUILD_ROOT=<path>, XCODE_ARGS=<arguments>,' \
 		'         CONFIGURE_ARGS=<arguments> (only on first Autotools configure)' \
 		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>' \
-		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>'
+		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>,' \
+		'         LDFLAGS=<target-linker options>, HOST_LDFLAGS=<host-generator options>'
