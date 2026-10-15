@@ -84,12 +84,10 @@
 		5DF4CB7F22B5BD5D00512A86 /* audio.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5DF4CB7E22B5BD5D00512A86 /* audio.cpp */; };
 		A7B1921418C35D4700791D8D /* DiskType.m in Sources */ = {isa = PBXBuildFile; fileRef = A7B1921318C35D4700791D8D /* DiskType.m */; };
 		E413A40320CF7E6D00FBE967 /* video_sdl2.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E413A40220CF7E6D00FBE967 /* video_sdl2.cpp */; };
-		E4150D1220D557820077C51A /* SDL2.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E4150D1120D557820077C51A /* SDL2.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E41936C420CFE64D003A7654 /* SDLMain.m in Sources */ = {isa = PBXBuildFile; fileRef = E41936C320CFE64D003A7654 /* SDLMain.m */; };
 		E4202603241250EE000508DF /* runtool.c in Sources */ = {isa = PBXBuildFile; fileRef = E4202602241250EE000508DF /* runtool.c */; };
 		E420260524125182000508DF /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E420260424125182000508DF /* Security.framework */; };
 		E420260B24125442000508DF /* etherhelpertool in Resources */ = {isa = PBXBuildFile; fileRef = E420260A2412540D000508DF /* etherhelpertool */; };
-		E420910120D0C4FA0094654F /* SDL2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E420910020D0C4FA0094654F /* SDL2.framework */; };
 		E444DC1520C8F06700DD29C9 /* pict.c in Sources */ = {isa = PBXBuildFile; fileRef = E444DC1420C8F06700DD29C9 /* pict.c */; };
 		E447067025D904D500EA2C14 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E447066F25D904D500EA2C14 /* Metal.framework */; };
 		E44C460520D262B0000583AE /* tftp.c in Sources */ = {isa = PBXBuildFile; fileRef = E44C45DC20D262AD000583AE /* tftp.c */; };
@@ -129,17 +127,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		E413A40820CF7EF800FBE967 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				E4150D1220D557820077C51A /* SDL2.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -341,14 +329,12 @@
 		A7B1921218C35D4700791D8D /* DiskType.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DiskType.h; sourceTree = "<group>"; };
 		A7B1921318C35D4700791D8D /* DiskType.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = DiskType.m; sourceTree = "<group>"; };
 		E413A40220CF7E6D00FBE967 /* video_sdl2.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = video_sdl2.cpp; path = ../../../BasiliskII/src/SDL/video_sdl2.cpp; sourceTree = "<group>"; };
-		E4150D1120D557820077C51A /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = /Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
 		E41936C220CFE64D003A7654 /* SDLMain.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SDLMain.h; path = ../../../BasiliskII/src/SDL/SDLMain.h; sourceTree = "<group>"; };
 		E41936C320CFE64D003A7654 /* SDLMain.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = SDLMain.m; path = ../../../BasiliskII/src/SDL/SDLMain.m; sourceTree = "<group>"; };
 		E4202600241250E2000508DF /* etherhelpertool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = etherhelpertool.c; sourceTree = "<group>"; };
 		E4202602241250EE000508DF /* runtool.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = runtool.c; sourceTree = "<group>"; };
 		E420260424125182000508DF /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		E420260A2412540D000508DF /* etherhelpertool */ = {isa = PBXFileReference; lastKnownFileType = text; path = etherhelpertool; sourceTree = BUILT_PRODUCTS_DIR; };
-		E420910020D0C4FA0094654F /* SDL2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SDL2.framework; path = /Library/Frameworks/SDL2.framework; sourceTree = "<group>"; };
 		E4302EE21FBFE7FA00A5B500 /* lowmem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lowmem.c; path = Darwin/lowmem.c; sourceTree = "<group>"; };
 		E444DC1420C8F06700DD29C9 /* pict.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pict.c; path = ../pict.c; sourceTree = "<group>"; };
 		E447066F25D904D500EA2C14 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
@@ -412,7 +398,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E420910120D0C4FA0094654F /* SDL2.framework in Frameworks */,
 				E420260524125182000508DF /* Security.framework in Frameworks */,
 				0856D21514A9A6C6000B1711 /* IOKit.framework in Frameworks */,
 				08CD42DC14B7B85B009CA2A2 /* Cocoa.framework in Frameworks */,
@@ -450,7 +435,6 @@
 			isa = PBXGroup;
 			children = (
 				520A161230056291005DCC43 /* SheepShaver.icon */,
-				E4150D1120D557820077C51A /* SDL2.framework */,
 				0856CCC814A99E30000B1711 /* Sources */,
 				08CD42DF14B7B865009CA2A2 /* Frameworks */,
 				0856CCC214A99E1C000B1711 /* Products */,
@@ -900,7 +884,6 @@
 			children = (
 				E447066F25D904D500EA2C14 /* Metal.framework */,
 				E420260424125182000508DF /* Security.framework */,
-				E420910020D0C4FA0094654F /* SDL2.framework */,
 				08CD42E714B7B8AA009CA2A2 /* Carbon.framework */,
 				08CD42DB14B7B85B009CA2A2 /* Cocoa.framework */,
 				0856D21414A9A6C6000B1711 /* IOKit.framework */,
@@ -962,7 +945,6 @@
 				0856CCBD14A99E1C000B1711 /* Resources */,
 				0856CCBE14A99E1C000B1711 /* Sources */,
 				0856CCBF14A99E1C000B1711 /* Frameworks */,
-				E413A40820CF7EF800FBE967 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
@@ -1182,6 +1164,8 @@
 					/Library/Frameworks,
 				);
 				MACEMUS_FRAMEWORK_SEARCH_DIR = "";
+				MACEMUS_SDL2_LINK_FLAGS = "-framework SDL2";
+				MACEMUS_SDL2_LIBRARY_DIR = "";
 				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
 				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1230,6 +1214,8 @@
 					/Library/Frameworks,
 				);
 				MACEMUS_FRAMEWORK_SEARCH_DIR = "";
+				MACEMUS_SDL2_LINK_FLAGS = "-framework SDL2";
+				MACEMUS_SDL2_LIBRARY_DIR = "";
 				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
 				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_DYNAMIC_NO_PIC = YES;
@@ -1303,6 +1289,8 @@
 					/Library/Frameworks,
 				);
 				MACEMUS_FRAMEWORK_SEARCH_DIR = "";
+				MACEMUS_SDL2_LINK_FLAGS = "-framework SDL2";
+				MACEMUS_SDL2_LIBRARY_DIR = "";
 				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
 				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_CW_ASM_SYNTAX = NO;
@@ -1345,6 +1333,10 @@
 				INFOPLIST_PREFIX_HEADER = "";
 				INFOPLIST_PREPROCESS = NO;
 				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(MACEMUS_SDL2_LIBRARY_DIR)",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1356,11 +1348,13 @@
 				"OTHER_LDFLAGS[arch=arm64]" = (
 					"$(inherited)",
 					"$(MACEMUS_LDFLAGS)",
+					"$(MACEMUS_SDL2_LINK_FLAGS)",
 					"-lkpx_cpu",
 				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
 					"$(inherited)",
 					"$(MACEMUS_LDFLAGS)",
+					"$(MACEMUS_SDL2_LINK_FLAGS)",
 					"-lkpx_cpu",
 					"-pagezero_size",
 					0x3000,
@@ -1391,6 +1385,8 @@
 					/Library/Frameworks,
 				);
 				MACEMUS_FRAMEWORK_SEARCH_DIR = "";
+				MACEMUS_SDL2_LINK_FLAGS = "-framework SDL2";
+				MACEMUS_SDL2_LIBRARY_DIR = "";
 				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
 				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_CW_ASM_SYNTAX = NO;
@@ -1433,6 +1429,10 @@
 				INFOPLIST_PREFIX_HEADER = "";
 				INFOPLIST_PREPROCESS = NO;
 				INSTALL_PATH = "$(HOME)/Applications";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(MACEMUS_SDL2_LIBRARY_DIR)",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1444,11 +1444,13 @@
 				"OTHER_LDFLAGS[arch=arm64]" = (
 					"$(inherited)",
 					"$(MACEMUS_LDFLAGS)",
+					"$(MACEMUS_SDL2_LINK_FLAGS)",
 					"-lkpx_cpu",
 				);
 				"OTHER_LDFLAGS[arch=x86_64]" = (
 					"$(inherited)",
 					"$(MACEMUS_LDFLAGS)",
+					"$(MACEMUS_SDL2_LINK_FLAGS)",
 					"-lkpx_cpu",
 					"-pagezero_size",
 					0x3000,

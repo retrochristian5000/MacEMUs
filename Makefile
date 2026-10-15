@@ -143,7 +143,52 @@ endif
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks
+# Choose SDL2-compatible linkage at Make startup. sdl2-compat provides
+# libSDL2.dylib rather than an SDL2.framework; never fake a framework path.
+MACEMUS_SDL2_LINKAGE ?= auto
+MACEMUS_SDL2_LIBRARY_DIR ?=
+MACEMUS_XCODE_SDL_ARGS :=
+ifeq ($(MACEMUS_PLATFORM),macos)
+ifeq ($(filter $(MACEMUS_SDL2_LINKAGE),auto dylib framework),)
+$(error MACEMUS_SDL2_LINKAGE must be auto, dylib, or framework)
+endif
+ifneq ($(MACEMUS_HOMEBREW),off)
+ifeq ($(strip $(MACEMUS_SDL2_LIBRARY_DIR)),)
+ifneq ($(strip $(MACEMUS_BREW_PREFIX)),)
+ifneq ($(wildcard $(MACEMUS_BREW_LIB)/libSDL2.dylib),)
+MACEMUS_SDL2_LIBRARY_DIR := $(MACEMUS_BREW_LIB)
+endif
+endif
+ifeq ($(strip $(MACEMUS_SDL2_LIBRARY_DIR)),)
+ifneq ($(strip $(MACEMUS_SDL2_PREFIX)),)
+ifneq ($(wildcard $(MACEMUS_SDL2_PREFIX)/lib/libSDL2.dylib),)
+MACEMUS_SDL2_LIBRARY_DIR := $(MACEMUS_SDL2_PREFIX)/lib
+endif
+endif
+endif
+endif
+endif
+ifeq ($(MACEMUS_SDL2_LINKAGE),dylib)
+ifeq ($(wildcard $(MACEMUS_SDL2_LIBRARY_DIR)/libSDL2.dylib),)
+$(error SDL2 shared library not found; install sdl2-compat or set MACEMUS_SDL2_LIBRARY_DIR)
+endif
+endif
+ifeq ($(MACEMUS_SDL2_LINKAGE),framework)
+MACEMUS_SDL2_SELECTED := framework
+else ifneq ($(strip $(MACEMUS_SDL2_LIBRARY_DIR)),)
+MACEMUS_SDL2_SELECTED := dylib
+else
+MACEMUS_SDL2_SELECTED := framework
+endif
+ifeq ($(MACEMUS_SDL2_SELECTED),dylib)
+MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-lSDL2"
+MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LIBRARY_DIR="$(MACEMUS_SDL2_LIBRARY_DIR)"
+else
+MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-framework SDL2"
+endif
+endif
+
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage
 
 all: basilisk sheepshaver
 
@@ -152,25 +197,25 @@ basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) build
 
 sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) build
 
 clean-basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) clean
 
 clean-sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) clean
 
 else
 ifeq ($(MACEMUS_PLATFORM),mingw)
@@ -233,6 +278,9 @@ test-linker-flags:
 test-homebrew-frameworks:
 	@./tests/test-homebrew-frameworks.sh
 
+test-sdl2-linkage:
+	@./tests/test-sdl2-linkage.sh
+
 # The portable Mac clipboard size/range checks are compiled with conversion
 # warnings enabled and treated as errors, independent of the emulator.
 test-type-conversions:
@@ -258,6 +306,7 @@ ifeq ($(MACEMUS_PLATFORM),macos)
 	@printf 'SDL2 flat include (<SDL.h>): %s\n' '$(MACEMUS_SDL2_INCLUDE_FLAT)'
 	@printf 'GMP fallback: %s\nMPFR fallback: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)'
 	@printf 'SDL2 formula: %s\n' '$(MACEMUS_SDL2_PREFIX)'
+	@printf 'SDL2 link mode: %s\nSDL2 library directory: %s\n' '$(MACEMUS_SDL2_SELECTED)' '$(MACEMUS_SDL2_LIBRARY_DIR)'
 	@printf '%s\n' 'Note: SDL2.framework remains a separate Xcode dependency.'
 else
 	@printf '%s\n' 'Homebrew discovery is enabled for macOS Xcode builds only.'
@@ -272,6 +321,7 @@ help:
 		'  make clean               Clean both emulator builds' \
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
 		'  make test-homebrew-frameworks  Verify framework search paths' \
+		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
 		'  make linker-info         Audit target/host LDFLAGS routing' \
 		'  make test-linker-flags   Run non-Xcode linker flag smoke tests' \
@@ -285,4 +335,5 @@ help:
 		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>' \
 		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>,' \
 		'         LDFLAGS=<target-linker options>, HOST_LDFLAGS=<host-generator options>,' \
-		'         MACEMUS_BREW_FRAMEWORKS=<framework directory>'
+		'         MACEMUS_BREW_FRAMEWORKS=<framework directory>,' \
+		'         MACEMUS_SDL2_LINKAGE=auto|dylib|framework, MACEMUS_SDL2_LIBRARY_DIR=<dir>'
