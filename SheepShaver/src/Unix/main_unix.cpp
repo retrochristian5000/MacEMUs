@@ -805,6 +805,8 @@ int main(int argc, char **argv)
 #endif
 	char str[256];
 	bool memory_mapped_from_zero, ram_rom_areas_contiguous;
+	bool ram_too_small = false;
+	uint32_t ram_bytes = 0;
 	const char *vmdir = NULL;
 
 	// Initialize variables
@@ -1053,8 +1055,6 @@ int main(int argc, char **argv)
 #endif
 	
 	// Reject negative RAM preferences before narrowing to unsigned bytes.
-	bool ram_too_small = false;
-	uint32_t ram_bytes = 0;
 	if (!sheep_startup::normalize_ram(PrefsFindInt32("ramsize"),
 	    ram_bytes, ram_too_small)) {
 		ErrorAlert("Invalid SheepShaver RAM size preference.");
