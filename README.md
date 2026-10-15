@@ -164,6 +164,22 @@ The test generates its own synthetic ROM fixtures and does not use
 Apple firmware. See the Mac OS 9.2.2 compatibility ledger for remaining
 nanokernel/MMU and device model work.
 
+### PPC32 MMU register interface
+
+An isolated `ppc-registers.hpp` bridges MSR, SR0–15, SDR1,
+IBAT/DBAT, DAR, DSISR, SRR0/1, SPRG0–3 and read-only PVR into
+the experimental MMU. Unknown SPRs are rejected instead of
+fabricated; segment and BAT writes invalidate cached mappings.
+
+```sh
+make test-sheepshaver-92-registers
+make test-sheepshaver-92-mmu
+```
+
+**This interface is not yet wired into live SheepShaver execution.**
+The SIGILL shortcuts and missing ISI/RFI/firmware contract remain
+tracked in `docs/SheepShaver-MacOS-9.2.2.md`.
+
 ### Experimental Mac OS 9.2.x groundwork
 
 New World Mac OS 9.2.x requires a guest PowerPC32 MMU (BAT,

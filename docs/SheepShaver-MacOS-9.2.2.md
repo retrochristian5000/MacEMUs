@@ -12,7 +12,7 @@ and startup diagnostics work; it does not replace their checks.
 | Cocoa configuration before SDL | Integrated; runtime unverified | `make sheepshaver-settings` |
 | CHRP New World `Mac OS ROM` decoding | Bounded lzss/prcl parser and 16 MiB container loader implemented; **no real 9.2.2 ROM verified** | Synthetic OldWorld/NewWorld CHRP tests via `make test-sheepshaver-rom-verification` |
 | PPC32 BAT/hashed page table/MMU | **Standalone experimental module imported, NOT integrated** | `make test-sheepshaver-92-mmu` |
-| CPU MSR, SPRs, DSI/ISI, syscall and privileged exception wiring | Missing | One CPU interpreter and one address translator, tested before JIT |
+| CPU MSR, SPRs, DSI/ISI, syscall and privileged exception wiring | Isolated register bridge implemented; live CPU instruction/exception wiring still missing | `make test-sheepshaver-92-registers` |
 | New World nanokernel v2 configuration handoff | Missing | KDP/ConfigInfo, ROM entry, exception vector baselines |
 | Open Firmware-compatible device tree | Missing | Compare with a 9.2.x golden trace and model data |
 | PMU, NVRAM, OpenPIC, PCI, ATA and video device behaviors | Not established | Add only observed requirements |
@@ -57,6 +57,32 @@ a 9.2.2 ROM, and acceptance is not proof that 9.2.2 will boot. The ROM
 nanokernel v2 and device-tree/PowerPC MMU requirements are still missing
 in the running emulator. Real Apple ROMs are neither bundled nor
 validated by this test.
+
+## Register-state inventory (2026-10-15)
+
+Reference: NXP MPC750 User's Manual. The isolated `ppc-registers.hpp`
+uses the same MMU for the register state and address translations.
+
+| Registers | IDs / role | State |
+| --- | --- | --- |
+| MSR | IR, DR, PR, IP | Shared with experimental MMU |
+| SR0–15 | Segment registers (not SPR numbers) | Reads/writes and conservative TLB flush |
+| SDR1 | SPR 25 | Hashed page-table base read/write |
+| IBAT / DBAT | SPR 528–535 / 536–543 | Independent U/L halves |
+| DAR / DSISR | SPR 19 / 18 | DSI fault address and reason |
+| SRR0 / SRR1 | SPR 26 / 27 | Exception PC and prior MSR |
+| SPRG0–3 | SPR 272–275 | Four scratch latches |
+| PVR | SPR 287 | Read-only CPU model value |
+| HID, DEC, TB | CPU-model/timebase dependent | Not implemented; no fictitious values |
+
+**Existing runtime obstacle:** In `Unix/main_unix.cpp`, SIGILL still
+fabricates `SDR1=0xdead001f` and skips `mtsr`, `mtsrin`, `tlbie`
+and some BAT writes. We have not routed those live opcodes to this
+bridge: doing that safely also needs physical memory/MMIO translation,
+privilege checks, DSI/ISI, RFI and nanokernel boot tests.
+
+Standalone test: `make test-sheepshaver-92-registers`. No Apple ROM
+or Mac OS 9.2.2 guest is required, and this is not a claim of boot support.
 
 ## Next integration gates
 
