@@ -146,6 +146,23 @@ tail -n 80 "$HOME/Library/Logs/SheepShaver.log"
 The portable test covers ROM fallback logic and source wiring; Cocoa
 display and actual ROM/guest boot require a native macOS runtime.
 
+### Experimental Mac OS 9.2.x groundwork
+
+New World Mac OS 9.2.x requires a guest PowerPC32 MMU (BAT,
+hashed page tables, SR/SDR1, DSI/ISI) and a nanokernel v2
+boot/hardware contract, not simply an accepted ROM version string.
+The experimental GPL-compatible MMU implementation and synthetic
+translation/fault tests live under `SheepShaver/src/kpx_cpu` and
+`tests/` and are **not yet linked into the live emulator**.
+
+```sh
+make test-sheepshaver-92-mmu
+```
+
+See `docs/SheepShaver-MacOS-9.2.2.md` for donor attribution, supported
+and unsupported claims, validation gates, and remaining hardware work.
+Mac OS 9.2.2 is **not claimed to boot** in this fork.
+
 ## Build either emulator or both
 
 From the repository root:

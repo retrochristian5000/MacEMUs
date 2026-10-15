@@ -239,7 +239,7 @@ MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
 endif
 endif
 
-.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration sheepshaver-settings
+.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration sheepshaver-settings test-sheepshaver-92-mmu
 
 all: basilisk sheepshaver
 
@@ -388,6 +388,10 @@ test-sheepshaver-app-logging:
 test-sheepshaver-configuration:
 	@CXX="$(CXX)" ./tests/test-sheepshaver-configuration.sh
 
+# Experimental PPC32 guest MMU only; does NOT activate Mac OS 9.2 boot.
+test-sheepshaver-92-mmu:
+	@CXX="$(CXX)" ./tests/test-sheepshaver-92-mmu.sh
+
 ifeq ($(MACEMUS_PLATFORM),macos)
 sheepshaver-settings: sheepshaver
 	@"$(MACEMUS_SHEEPSHAVER_APP)/Contents/MacOS/SheepShaver" --settings
@@ -463,6 +467,7 @@ help:
 		'  make test-sheepshaver-startup  Check ROM and RAM startup limits' \
 		'  make test-sheepshaver-app-logging  Verify failure-stage tracing' \
 		'  make test-sheepshaver-configuration  Test ROM/configuration routing' \
+		'  make test-sheepshaver-92-mmu  Check experimental PPC32 MMU translations' \
 		'  make sheepshaver-settings  Open Cocoa settings without ROM boot' \
 		'  make native-info         Show host architecture and CPU target' \
 		'  make check-sdl2-exports Verify SDL2 exports, architecture and link' \
