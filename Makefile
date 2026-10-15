@@ -45,7 +45,7 @@ ifneq ($(strip $(MACEMUS_BREW)),)
 MACEMUS_BREW_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix 2>/dev/null)
 MACEMUS_GMP_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed gmp 2>/dev/null)
 MACEMUS_MPFR_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed mpfr 2>/dev/null)
-MACEMUS_SDL2_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed sdl2 2>/dev/null)
+MACEMUS_SDL2_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed sdl2-compat 2>/dev/null || "$(MACEMUS_BREW)" --prefix --installed sdl2 2>/dev/null)
 endif
 endif
 ifeq ($(MACEMUS_HOMEBREW),required)
@@ -150,7 +150,7 @@ homebrew-info:
 ifeq ($(MACEMUS_PLATFORM),macos)
 	@printf 'Homebrew mode: %s\nHost architecture: %s\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
 	@printf 'Homebrew command: %s\nHomebrew prefix: %s\n' '$(MACEMUS_BREW)' '$(MACEMUS_BREW_PREFIX)'
-	@printf 'GMP prefix: %s\nMPFR prefix: %s\nSDL2 prefix: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)' '$(MACEMUS_SDL2_PREFIX)'
+	@printf 'GMP prefix: %s\nMPFR prefix: %s\nSDL2 (sdl2-compat) prefix: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)' '$(MACEMUS_SDL2_PREFIX)'
 	@printf '%s\n' 'Note: Xcode still requires SDL2.framework; Homebrew libSDL2.dylib is not a framework.'
 else
 	@printf '%s\n' 'Homebrew discovery is enabled for macOS Xcode builds only.'
