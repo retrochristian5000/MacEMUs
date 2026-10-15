@@ -38,7 +38,7 @@ static std::vector<uint8_t> wrap_chrp(const std::vector<uint8_t> &payload, bool 
     return out;
 }
 
-int main()
+int main(int argc, char **argv)
 {
     std::vector<uint8_t> rom(sheep_rom::kRomSize, 0);
     std::vector<uint8_t> decoded(sheep_rom::kRomSize, 0);
@@ -50,6 +50,12 @@ int main()
     memcpy(rom.data() + 0x30d064, "NewWorld", 8);
     assert(sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kNewWorld);
+    if (argc > 1) {
+        FILE *f = std::fopen(argv[1], "wb");
+        assert(f);
+        assert(std::fwrite(rom.data(), 1, rom.size(), f) == rom.size());
+        assert(std::fclose(f) == 0);
+    }
     std::vector<uint8_t> lz = literal_lzss(rom);
     assert(lz.size() > sheep_rom::kRomSize);  // Actual format-limit regression.
     std::vector<uint8_t> chrp = wrap_chrp(lz, false);

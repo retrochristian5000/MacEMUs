@@ -46,6 +46,12 @@ linked-list entries, and LZSS output are bounded. Synthetic fixtures
 cover OldWorld/plain, NewWorld/CHRP lzss, NewWorld/CHRP prcl, truncated
 containers, malformed offsets, and missing ROM signatures.
 
+To inspect a locally owned ROM without booting the emulator, run
+`make check-sheepshaver-rom SHEEPSHAVER_ROM="/path/to/Mac OS ROM"`.
+The inspector reports container format, recognized decoded ROM identity,
+and whether the New World nanokernel entry region is populated. It does
+not certify a ROM as version 9.2.2 or verify guest OS compatibility.
+
 **Validation boundary:** a recognized NewWorld ROM is not necessarily
 a 9.2.2 ROM, and acceptance is not proof that 9.2.2 will boot. The ROM
 nanokernel v2 and device-tree/PowerPC MMU requirements are still missing

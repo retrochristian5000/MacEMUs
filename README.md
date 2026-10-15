@@ -157,6 +157,7 @@ claim that Mac OS 9.2.2 will boot.
 
 ```sh
 make test-sheepshaver-rom-verification
+make check-sheepshaver-rom SHEEPSHAVER_ROM="/path/to/Mac OS ROM"
 ```
 
 The test generates its own synthetic ROM fixtures and does not use
