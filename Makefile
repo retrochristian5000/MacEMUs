@@ -51,6 +51,18 @@ endif
 # Never mix native arm64 dependencies with an Intel/Rosetta build.
 MACEMUS_HOMEBREW ?= auto
 MACEMUS_HOST_ARCH := $(shell uname -m)
+# macOS host code must be native-only; Rosetta is not native ARM64.
+ifeq ($(MACEMUS_PLATFORM),macos)
+ifeq ($(filter $(MACEMUS_HOST_ARCH),arm64 x86_64),)
+$(error Unsupported macOS native architecture: $(MACEMUS_HOST_ARCH))
+endif
+ifeq ($(HOST_OS),Darwin)
+MACEMUS_RUNNING_TRANSLATED := $(shell sysctl -n sysctl.proc_translated 2>/dev/null || :)
+ifeq ($(MACEMUS_RUNNING_TRANSLATED),1)
+$(error Running under Rosetta; use a native arm64 Terminal session)
+endif
+endif
+endif
 ifneq ($(filter $(MACEMUS_HOMEBREW),auto off required),$(MACEMUS_HOMEBREW))
 $(error MACEMUS_HOMEBREW must be auto, off, or required)
 endif
@@ -197,34 +209,59 @@ MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-framework SDL2"
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons
+# Build one matching CPU library before the Basilisk application, rather
+# than Xcode recursively compiling both fixed-arch CPU subprojects.
+MACEMUS_XCODE_NATIVE_ARGS :=
+MACEMUS_BASILISK_CPU_PROJECT :=
+MACEMUS_BASILISK_CPU_TARGET :=
+ifeq ($(MACEMUS_PLATFORM),macos)
+MACEMUS_XCODE_NATIVE_ARGS += ARCHS="$(MACEMUS_HOST_ARCH)" ONLY_ACTIVE_ARCH=YES HOST_ARCH="$(MACEMUS_HOST_ARCH)"
+ifeq ($(MACEMUS_HOST_ARCH),arm64)
+MACEMUS_BASILISK_CPU_PROJECT := BasiliskII/src/MacOSX/uae_cpu_2021.xcodeproj
+MACEMUS_BASILISK_CPU_TARGET := uae_cpu_arm64
+else
+MACEMUS_BASILISK_CPU_PROJECT := BasiliskII/src/MacOSX/uae_cpu.xcodeproj
+MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
+endif
+endif
+
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info
 
 all: basilisk sheepshaver
 
 ifeq ($(MACEMUS_PLATFORM),macos)
+# Build native CPU archive first, sharing configuration and output directories.
 basilisk:
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project $(MACEMUS_BASILISK_CPU_PROJECT) -target $(MACEMUS_BASILISK_CPU_TARGET) \
+		-configuration $(CONFIGURATION) \
+		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) build
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) build
 
 sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) build
 
 clean-basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) clean
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project $(MACEMUS_BASILISK_CPU_PROJECT) -target $(MACEMUS_BASILISK_CPU_TARGET) \
+		-configuration $(CONFIGURATION) \
+		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) clean
 
 clean-sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) clean
 
 else
 ifeq ($(MACEMUS_PLATFORM),mingw)
@@ -290,6 +327,12 @@ test-homebrew-frameworks:
 test-sdl2-linkage:
 	@./tests/test-sdl2-linkage.sh
 
+test-native-xcode:
+	@./tests/test-native-xcode.sh
+
+native-info:
+	@printf 'Native host architecture: %s\nNative CPU target: %s\n' '$(MACEMUS_HOST_ARCH)' '$(MACEMUS_BASILISK_CPU_TARGET)'
+
 # This is an active macOS symbol/architecture/link probe, not a dry run.
 # SDL3 is a runtime implementation dependency of sdl2-compat; do not add
 # -lSDL3 to SDL2 callers unless a separate direct SDL3 API is used.
@@ -343,6 +386,8 @@ help:
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
 		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
+		'  make test-native-xcode   Check native Xcode target selection' \
+		'  make native-info         Show host architecture and CPU target' \
 		'  make check-sdl2-exports Verify SDL2 exports, architecture and link' \
 		'  make audit-sdl-addons   Report use of optional SDL2 libraries' \
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \

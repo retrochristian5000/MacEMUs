@@ -666,8 +666,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				E45769BF2643A68B0063BAF1 /* PBXTargetDependency */,
-				E45769BD2643A6870063BAF1 /* PBXTargetDependency */,
 			);
 			name = BasiliskII;
 			productName = BasiliskII;
@@ -1064,6 +1062,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
 					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
 					"$(MACEMUS_ARM64_PREFIX)/lib",
 					"$(MACEMUS_SDL2_LIBRARY_DIR)",
 					"$(MACEMUS_GMP_PREFIX)/lib",
@@ -1071,6 +1070,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
 					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
 					"$(MACEMUS_X86_64_PREFIX)/lib",
 					"$(MACEMUS_SDL2_LIBRARY_DIR)",
 				);
@@ -1187,6 +1187,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = (
 					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
 					"$(MACEMUS_ARM64_PREFIX)/lib",
 					"$(MACEMUS_SDL2_LIBRARY_DIR)",
 					"$(MACEMUS_GMP_PREFIX)/lib",
@@ -1194,6 +1195,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
 					"$(inherited)",
+					"$(BUILT_PRODUCTS_DIR)",
 					"$(MACEMUS_X86_64_PREFIX)/lib",
 					"$(MACEMUS_SDL2_LIBRARY_DIR)",
 				);

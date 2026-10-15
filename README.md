@@ -37,12 +37,33 @@ An alternate prefix can be selected using `MACEMUS_BREW_PREFIX` or
 `MACEMUS_ARM64_PREFIX`/`MACEMUS_X86_64_PREFIX` in `XCODE_ARGS`.
 Always verify that the library binaries contain the required architecture.
 
-The Xcode CPU-generator helpers run on the *build host* (arm64 on a native
-Apple Silicon shell, or x86_64 on an Intel shell). Do not propagate a global
-`ARCHS=arm64` override into all nested Xcode targets: Basilisk II has
-separate x86_64 and arm64 CPU-library dependencies. Leave Xcode's standard
-architecture resolution intact until we separately redesign that dependency
-graph.
+**Native-only Xcode builds:** On Apple Silicon, root make selects
+`ARCHS=arm64` and builds only `uae_cpu_arm64` before the Basilisk II
+application. On Intel, it selects native `x86_64` and builds
+`uae_cpu_x86_64`. The previous Basilisk II app target unconditionally
+depended on **both** CPU subprojects, which inadvertently triggered an
+x86_64 build on Apple Silicon. Those automatic dependencies are now
+removed, while both original CPU projects remain available for their
+respective native hosts.
+
+Root make passes `ARCHS`, `ONLY_ACTIVE_ARCH=YES`, and `HOST_ARCH`
+to every Xcode invocation after `XCODE_ARGS`. Each selected CPU
+archive shares `SYMROOT`/`OBJROOT` with the application; the app
+explicitly searches `BUILT_PRODUCTS_DIR` for its native archive.
+SheepShaver's CPU backend also uses the native host architecture.
+
+A Rosetta-translated macOS shell is rejected; open a native Terminal
+session. Run `make native-info` and `make test-native-xcode` to inspect
+the selected build graph. Direct Xcode Basilisk II builds require the
+matching CPU library to be built separately first: the root Makefile
+performs that preparation automatically. Guest CPU emulation
+(68K/PowerPC) does not require an Intel host binary.
+
+```sh
+make native-info
+make test-native-xcode
+make basilisk
+```
 
 The default build backend is selected by host: Xcode on macOS, the existing
 Autotools/Make files in `src/Unix` on Unix-like hosts, and `src/Windows` on
