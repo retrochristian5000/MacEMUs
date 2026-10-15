@@ -164,9 +164,33 @@ The test generates its own synthetic ROM fixtures and does not use
 Apple firmware. See the Mac OS 9.2.2 compatibility ledger for remaining
 nanokernel/MMU and device model work.
 
+### Kheperix PowerPC register layout restored
+
+The classic CPU expects `ppc-registers.hpp` to define `powerpc_vr`
+(128-bit AltiVec storage), `powerpc_fpr`, `powerpc_vscr`, CR, XER,
+and the complete `powerpc_registers` structure. An experimental MMU
+addition accidentally reused that filename and erased those types.
+The original file was restored **byte-for-byte** from the historical
+MacEMUs commit `6dcc7bad56332f66b796910b6f14844794e048ab`.
+Experimental supervisor/MMU registers are now in the distinct header
+`ppc-mmu-registers.hpp` instead. The emulator CPU's include remains
+`ppc-registers.hpp`, while only standalone MMU experiments include
+the new header. Neither register state nor alignment was redefined.
+
+```sh
+make test-sheepshaver-register-layout
+make test-sheepshaver-92-registers
+```
+
+The portable layout test compiles the real register header using minimal
+stubs for unrelated bitfield/flag dependencies, verifies 16-byte vector
+storage and all 32 VRs, and includes the experimental bridge in the same
+translation unit to detect future type and filename collisions.
+Full macOS Xcode compile and runtime alignment checks are separate.
+
 ### PPC32 MMU register interface
 
-An isolated `ppc-registers.hpp` bridges MSR, SR0–15, SDR1,
+An isolated `ppc-mmu-registers.hpp` bridges MSR, SR0–15, SDR1,
 IBAT/DBAT, DAR, DSISR, SRR0/1, SPRG0–3 and read-only PVR into
 the experimental MMU. Unknown SPRs are rejected instead of
 fabricated; segment and BAT writes invalidate cached mappings.

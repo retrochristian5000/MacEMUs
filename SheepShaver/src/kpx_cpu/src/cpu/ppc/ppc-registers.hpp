@@ -1,109 +1,251 @@
 /*
- * Experimental PPC32 MMU supervisor registers for SheepShaver.
- * SheepShaver (C) Christian Bauer and Marc Hellwig.
- * MacEMUs additions licensed GPL-2.0-or-later.
- * Offline only: NOT connected to native SIGILL/interpreter or JIT.
+ *  ppc-registers.hpp - PowerPC registers definition
+ *
+ *  Kheperix (C) 2003-2005 Gwenole Beauchesne
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#ifndef SHEEPSHAVER_PPC32_REGISTERS_HPP
-#define SHEEPSHAVER_PPC32_REGISTERS_HPP
-#include "cpu/ppc/ppc-mmu.hpp"
-#include <stdint.h>
 
-class ppc32_registers {
+#ifndef PPC_REGISTERS_H
+#define PPC_REGISTERS_H
+
+#include "cpu/ppc/ppc-bitfields.hpp"
+
+/**
+ *		Condition Register
+ **/
+
+class powerpc_cr_register
+{
+	uint32 cr;
 public:
-    enum { DSISR = 18, DAR = 19, SDR1 = 25, SRR0 = 26, SRR1 = 27,
-        SPRG0 = 272, SPRG3 = 275, PVR = 287,
-        IBAT0U = 528, IBAT3L = 535, DBAT0U = 536, DBAT3L = 543,
-        DSISR_STORE = 0x02000000u };
-    explicit ppc32_registers(ppc32_mmu &mmu, uint32_t pvr)
-        : mmu_(mmu), pvr_(pvr) { reset(); }
-    void reset() {
-        mmu_.reset();
-        dsisr_ = dar_ = srr0_ = srr1_ = 0;
-        for (unsigned i = 0; i < 4; ++i) sprg_[i] = 0;
-    }
-    // MSR and SR are not numbered SPRs: keep separate operations.
-    uint32_t msr() const { return mmu_.msr(); }
-    void set_msr(uint32_t v) { mmu_.set_msr(v); }
-    bool read_sr(unsigned i, uint32_t &v) const {
-        if (i >= 16) return false;
-        v = mmu_.sr(i); return true;
-    }
-    bool write_sr(unsigned i, uint32_t v) {
-        if (i >= 16) return false;
-        if (mmu_.sr(i) != v) { mmu_.set_sr(i, v); mmu_.tlbia(); }
-        return true;
-    }
-    static unsigned spr_from_opcode(uint32_t insn) {
-        return ((insn >> 16) & 31u) | (((insn >> 11) & 31u) << 5);
-    }
-    bool read_spr(unsigned id, uint32_t &v) const {
-        if (id >= IBAT0U && id <= DBAT3L) return read_bat(id, v);
-        switch (id) {
-        case DSISR: v = dsisr_; return true;
-        case DAR:   v = dar_; return true;
-        case SDR1:  v = mmu_.sdr1(); return true;
-        case SRR0:  v = srr0_; return true;
-        case SRR1:  v = srr1_; return true;
-        case PVR:   v = pvr_; return true;
-        default:
-            if (id >= SPRG0 && id <= SPRG3) {
-                v = sprg_[id-SPRG0]; return true;
-            }
-            return false;
-        }
-    }
-    bool write_spr(unsigned id, uint32_t v) {
-        if (id >= IBAT0U && id <= DBAT3L) return write_bat(id, v);
-        switch (id) {
-        case DSISR: dsisr_ = v; return true;
-        case DAR: dar_ = v; return true;
-        case SDR1: mmu_.set_sdr1(v); return true;
-        case SRR0: srr0_ = v; return true;
-        case SRR1: srr1_ = v; return true;
-        default:
-            if (id >= SPRG0 && id <= SPRG3) {
-                sprg_[id-SPRG0] = v; return true;
-            }
-            return false; // PVR is read-only, unsupported SPRs do not lie.
-        }
-    }
-    void tlbie(uint32_t ea) { mmu_.tlbie(ea); }
-    void tlbia() { mmu_.tlbia(); }
-    // DSI only; proper ISI/RFI/other exception semantics require CPU wiring.
-    bool take_dsi(uint32_t pc, uint32_t ea, const ppc32_xlate_result &fault,
-                  bool store, uint32_t &vector) {
-        if (fault.ok || !fault.fault) return false;
-        uint32_t old_msr = mmu_.msr();
-        srr0_ = pc; srr1_ = old_msr; dar_ = ea;
-        dsisr_ = fault.fault | (store ? uint32_t(DSISR_STORE) : 0u);
-        vector = old_msr & ppc32_mmu::MSR_IP ? 0xfff00300u : 0x300u;
-        mmu_.set_msr(old_msr & ~uint32_t(ppc32_mmu::MSR_EXC_CLEAR));
-        return true;
-    }
-private:
-    bool read_bat(unsigned id, uint32_t &v) const {
-        const bool instruction = id < DBAT0U;
-        const unsigned index = (id - (instruction ? IBAT0U : DBAT0U)) / 2;
-        uint32_t upper=0, lower=0;
-        if (instruction) mmu_.get_ibat(index,&upper,&lower);
-        else mmu_.get_dbat(index,&upper,&lower);
-        v = (id & 1u) ? lower : upper;
-        return true;
-    }
-    bool write_bat(unsigned id, uint32_t v) {
-        const bool instruction = id < DBAT0U;
-        const unsigned index = (id - (instruction ? IBAT0U : DBAT0U)) / 2;
-        uint32_t upper=0, lower=0;
-        if (instruction) mmu_.get_ibat(index,&upper,&lower);
-        else mmu_.get_dbat(index,&upper,&lower);
-        if (id & 1u) lower=v; else upper=v;
-        if (instruction) mmu_.set_ibat(index,upper,lower);
-        else mmu_.set_dbat(index,upper,lower);
-        mmu_.tlbia(); return true;
-    }
-    ppc32_mmu &mmu_;
-    const uint32_t pvr_;
-    uint32_t dsisr_,dar_,srr0_,srr1_,sprg_[4];
+	bool test(int condition) const;
+	void set(uint32 v);
+	uint32 get() const;
+	void clear(int crfd);
+	void set(int crfd, uint32 v);
+	uint32 get(int crfd) const;
+	void set_so(int crfd, bool v);
+	void compute(int crfd, int32 v);
 };
+
+inline void
+powerpc_cr_register::clear(int crfd)
+{
+	cr &= ~(0xf << (28 - 4 * crfd));
+}
+
+inline void
+powerpc_cr_register::set(int crfd, uint32 v)
+{
+	clear(crfd);
+	cr |= v << (28 - 4 * crfd);
+}
+
+inline uint32
+powerpc_cr_register::get(int crfd) const
+{
+	return (cr >> (28 - 4 * crfd)) & 0xf;
+}
+
+inline void
+powerpc_cr_register::set_so(int crfd, bool v)
+{
+	const uint32 m = standalone_CR_SO_field::mask() << (28 - 4 * crfd);
+	cr = (cr & ~m) | (v ? m : 0);
+}
+
+inline void
+powerpc_cr_register::compute(int crfd, int32 v)
+{
+	const uint32 m = (standalone_CR_LT_field::mask() |
+					  standalone_CR_GT_field::mask() |
+					  standalone_CR_EQ_field::mask() ) << (28 - 4 * crfd);
+	cr = (cr & ~m);
+	if (v < 0)
+		cr |= standalone_CR_LT_field::mask() << (28 - 4 * crfd);
+	else if (v > 0)
+		cr |= standalone_CR_GT_field::mask() << (28 - 4 * crfd);
+	else
+		cr |= standalone_CR_EQ_field::mask() << (28 - 4 * crfd);
+}
+
+inline void
+powerpc_cr_register::set(uint32 v)
+{
+	cr = v;
+}
+
+inline uint32
+powerpc_cr_register::get() const
+{
+	return cr;
+}
+
+inline bool
+powerpc_cr_register::test(int condition) const
+{
+	return (cr << condition) & 0x80000000;
+}
+
+
+/**
+ *		XER register (SPR1)
+ **/
+
+class powerpc_xer_register
+{
+	uint8 so;
+	uint8 ov;
+	uint8 ca;
+	uint8 byte_count;
+public:
+	powerpc_xer_register();
+	void set(uint32 xer);
+	uint32 get() const;
+	void set_so(int v)			{ so = v; }
+	int get_so() const			{ return so; }
+	void set_ov(int v)			{ ov = v; so |= v; }
+	int get_ov() const			{ return ov; }
+	void set_ca(int v)			{ ca = v; }
+	int get_ca() const			{ return ca; }
+	void set_count(int v)		{ byte_count = v; }
+	int get_count() const		{ return byte_count; }
+};
+
+inline
+powerpc_xer_register::powerpc_xer_register()
+	: so(0), ov(0), ca(0), byte_count(0)
+{ }
+
+inline uint32
+powerpc_xer_register::get() const
+{
+	return (so << 31) | (ov << 30) | (ca << 29) | byte_count;
+}
+
+inline void
+powerpc_xer_register::set(uint32 xer)
+{
+	so = XER_SO_field::extract(xer);
+	ov = XER_OV_field::extract(xer);
+	ca = XER_CA_field::extract(xer);
+	byte_count = XER_COUNT_field::extract(xer);
+}
+
+
+/**
+ *		Special CPU flags
+ **/
+
+#include "cpu/spcflags.hpp"
+typedef basic_spcflags powerpc_spcflags;
+
+
+/**
+ *		Floating point register
+ **/
+
+union powerpc_fpr {
+	uint64 j;
+	double d;
+};
+
+
+/**
+ *		Vector Status and Control Register
+ **/
+
+class powerpc_vscr
+{
+	uint32 vscr;
+public:
+	powerpc_vscr() : vscr(0)	{ }
+	void set(uint32 v)			{ vscr = v; }
+	uint32 get() const			{ return vscr; }
+	uint32 get_nj() const		{ return vscr & VSCR_NJ_field::mask(); }
+	void set_nj(bool v)			{ VSCR_NJ_field::insert(vscr, v); }
+	uint32 get_sat() const		{ return vscr & VSCR_SAT_field::mask(); }
+	void set_sat(bool v)		{ VSCR_SAT_field::insert(vscr, v); }
+};
+
+
+/**
+ *		Vector register
+ **/
+
+union powerpc_vr
+{
+	uint8	b[16];
+	uint16	h[8];
+	uint32	w[4];
+	uint64	j[2];
+	float	f[4];
+};
+
+
+/**
+ *		User Environment Architecture (UEA) Register Set
+ **/
+
+struct powerpc_registers
+{
+	enum {
+		GPR_BASE	= 0,
+		FPR_BASE	= 32,
+		CR			= 64,
+		FPSCR,
+		XER,
+		LR,  CTR,
+		PC,
+		SP			= GPR_BASE + 1
+	};
+
+	enum {
+		SPR_XER		= 1,
+		SPR_LR		= 8,
+		SPR_CTR		= 9,
+		SPR_SDR1	= 25,
+		SPR_PVR		= 287,
+		SPR_VRSAVE	= 256,
+	};
+
+	static inline int GPR(int r) { return GPR_BASE + r; }
+	static inline int FPR(int r) { return FPR_BASE + r; }
+	static void interrupt_copy(powerpc_registers &oregs, powerpc_registers const &iregs);
+	
+	uint32 gpr[32];				// General-Purpose Registers
+	powerpc_fpr fpr[32];		// Floating-Point Registers
+	powerpc_vr vr[32];			// Vector Registers
+	powerpc_cr_register cr;		// Condition Register
+	powerpc_xer_register xer;	// XER Register (SPR 1)
+	powerpc_vscr vscr;			// Vector Status and Control Register
+	uint32 vrsave;				// AltiVec Save Register
+	uint32 fpscr;				// Floating-Point Status and Control Register
+	uint32 lr;					// Link Register (SPR 8)
+	uint32 ctr;					// Count Register (SPR 9)
+	uint32 pc;					// Program Counter
+	powerpc_spcflags spcflags;	// Special CPU flags
+#if KPX_MAX_CPUS == 1
+	uint32 reserve_valid;
+	uint32 reserve_addr;
+#else
+	static uint32 reserve_valid;
+	static uint32 reserve_addr;
+	static uint32 reserve_data;
 #endif
+};
+
+#endif /* PPC_REGISTERS_H */

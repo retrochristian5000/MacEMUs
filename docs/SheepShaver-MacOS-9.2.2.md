@@ -58,9 +58,27 @@ nanokernel v2 and device-tree/PowerPC MMU requirements are still missing
 in the running emulator. Real Apple ROMs are neither bundled nor
 validated by this test.
 
+## Recovery: register header filename collision (2026-10-15)
+
+**Cause:** previous experimental bridge commit `83a9104` replaced the
+existing `SheepShaver/src/kpx_cpu/src/cpu/ppc/ppc-registers.hpp`.
+That removed `powerpc_vr`, `powerpc_fpr`, `powerpc_vscr`,
+`powerpc_cr_register`, `powerpc_xer_register`, and the essential
+`powerpc_registers` aggregate. This is a build-breaking overwrite
+introduced in our own Mac OS 9.2.2 groundwork, not a new AltiVec ABI.
+
+**Repair:** recovered Kheperix's unchanged original header from
+`6dcc7bad56332f66b796910b6f14844794e048ab`, moved the
+experimental `ppc32_registers` adapter to `ppc-mmu-registers.hpp`,
+and rewired its standalone test include. The live CPU still includes
+the original header, preserving original type/member names and layout.
+Run both `make test-sheepshaver-register-layout` and
+`make test-sheepshaver-92-registers`. Do not reuse a legacy
+file path for another register family.
+
 ## Register-state inventory (2026-10-15)
 
-Reference: NXP MPC750 User's Manual. The isolated `ppc-registers.hpp`
+Reference: NXP MPC750 User's Manual. The isolated `ppc-mmu-registers.hpp`
 uses the same MMU for the register state and address translations.
 
 | Registers | IDs / role | State |

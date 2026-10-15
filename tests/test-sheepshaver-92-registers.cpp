@@ -1,5 +1,5 @@
 // Offline register/MMU tests. No Apple firmware required.
-#include "cpu/ppc/ppc-registers.hpp"
+#include "cpu/ppc/ppc-mmu-registers.hpp"
 #include <cassert>
 #include <cstdio>
 #include <vector>

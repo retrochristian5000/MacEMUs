@@ -239,7 +239,7 @@ MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
 endif
 endif
 
-.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration sheepshaver-settings test-sheepshaver-92-mmu test-sheepshaver-92-registers test-sheepshaver-rom-verification check-sheepshaver-rom
+.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration sheepshaver-settings test-sheepshaver-92-mmu test-sheepshaver-92-registers test-sheepshaver-register-layout test-sheepshaver-rom-verification check-sheepshaver-rom
 
 all: basilisk sheepshaver
 
@@ -395,6 +395,10 @@ test-sheepshaver-92-mmu:
 test-sheepshaver-92-registers:
 	@CXX="$(CXX)" ./tests/test-sheepshaver-92-registers.sh
 
+# Ensure the legacy Kheperix CPU register layout is preserved.
+test-sheepshaver-register-layout:
+	@CXX="$(CXX)" ./tests/test-sheepshaver-register-layout.sh
+
 test-sheepshaver-rom-verification:
 	@CXX="$(CXX)" ./tests/test-sheepshaver-rom-verification.sh
 
@@ -479,6 +483,7 @@ help:
 		'  make test-sheepshaver-configuration  Test ROM/configuration routing' \
 		'  make test-sheepshaver-92-mmu  Check experimental PPC32 MMU translations' \
 		'  make test-sheepshaver-92-registers  Test PPC MMU supervisor registers' \
+		'  make test-sheepshaver-register-layout  Check legacy PPC register ABI' \
 		'  make test-sheepshaver-rom-verification  Verify CHRP and ROM identity' \
 		'  make check-sheepshaver-rom  Inspect a ROM without launching SheepShaver' \
 		'  make sheepshaver-settings  Open Cocoa settings without ROM boot' \
