@@ -15,25 +15,26 @@ On macOS, app bundles go into `$(DESTDIR)$(PREFIX)/Applications`.
 For example `make install PREFIX=/usr/local DESTDIR=/tmp/pkg` stages
 `/tmp/pkg/usr/local/Applications/BasiliskII.app` and `SheepShaver.app`.
 Use `PREFIX=/` for the normal macOS `/Applications` directory.
-The script copies bundles with `ditto` when available; it rejects
-relative prefixes, dot-segments, missing bundles, and existing
-destinations rather than silently merging obsolete resources. Reinstalling
-an existing bundle is explicitly supported with `INSTALL_FLAGS=-f`:
+The script copies bundles with `ditto` when available. The root
+Makefile sets `INSTALL_FLAGS ?= -f`, so **ordinary `make install`
+replaces existing Basilisk II and SheepShaver apps automatically**.
+There is no need to add `-f` to your command. Direct invocations of
+the underlying script without `-f` still refuse to overwrite.
 
 ```sh
-make install PREFIX=/usr/local DESTDIR=/tmp/pkg INSTALL_FLAGS=-f
-make install-basilisk PREFIX=/ INSTALL_FLAGS=-f
+make install PREFIX=/usr/local DESTDIR=/tmp/pkg
+make install-basilisk PREFIX=/
+# Optional safety mode: refuse to overwrite an existing app
+make install INSTALL_FLAGS=
 ```
 
-`make -f` is **not** an install switch; it selects a Makefile. Use
-`INSTALL_FLAGS=-f` instead. In force mode, both new applications are
-copied into a temporary directory first. Existing bundles are moved to
-backups before the new copies are renamed into place, so stale files
-are not merged. If replacement fails, the installer attempts to restore
-the previous versions and retains backups when rollback cannot complete.
-Force does not bypass input validation or path checks. Unix component
-installers already overwrite their installed files; this flag controls
-the macOS `.app` replacement procedure.
+The replacement process validates all sources and paths, copies new
+bundles into a temporary directory, and moves existing bundles to
+backups before renaming the fresh versions into place. It avoids merging
+obsolete files, attempts rollback on failure, and retains backups if
+rollback cannot complete. Setting `INSTALL_FLAGS=` disables force
+for a particular invocation. The separate Unix installers already
+overwrite installed files and do not use this macOS flag.
 
 ```sh
 make install-info

@@ -22,20 +22,28 @@ if ./scripts/install-macos-app.sh "$tmp/stage" /usr/local \
     fail 'existing app was overwritten'
 fi
 grep -F 'refusing to overwrite' "$tmp/error" >/dev/null || fail 'no overwrite guard'
-# An explicit -f should replace, not merge, both existing .app directories.
+# Verify a no-force override remains available for cautious staging.
+if make --no-print-directory install MACEMUS_PLATFORM=macos MACEMUS_HOMEBREW=off \
+    MACEMUS_HOST_ARCH=arm64 XCODEBUILD=: BUILD_ROOT="$tmp/build" \
+    PREFIX=/usr/local DESTDIR="$tmp/stage" INSTALL_FLAGS= >"$tmp/error" 2>&1; then
+    fail 'INSTALL_FLAGS= did not disable overwrite'
+fi
+grep -F 'refusing to overwrite' "$tmp/error" >/dev/null ||
+    fail 'no-force override did not report the existing application'
+# Ordinary make install must replace existing apps, not merge stale resources.
 for name in BasiliskII SheepShaver; do
     printf 'updated-%s\n' "$name" > "$tmp/build/$name/Release/$name.app/Contents/MacOS/$name"
     touch "$tmp/stage/usr/local/Applications/$name.app/Contents/obsolete"
 done
 make --no-print-directory install MACEMUS_PLATFORM=macos MACEMUS_HOMEBREW=off \
     MACEMUS_HOST_ARCH=arm64 XCODEBUILD=: BUILD_ROOT="$tmp/build" \
-    PREFIX=/usr/local DESTDIR="$tmp/stage" INSTALL_FLAGS=-f >"$tmp/log" ||
-    fail 'forced reinstall of both applications failed'
+    PREFIX=/usr/local DESTDIR="$tmp/stage" >"$tmp/log" ||
+    fail 'default reinstall of both applications failed'
 for name in BasiliskII SheepShaver; do
     [ "$(cat "$tmp/stage/usr/local/Applications/$name.app/Contents/MacOS/$name")" = "updated-$name" ] ||
-        fail "force install retained old binary: $name"
+        fail "default install retained old binary: $name"
     [ ! -e "$tmp/stage/usr/local/Applications/$name.app/Contents/obsolete" ] ||
-        fail "force install merged stale resources: $name"
+        fail "default install merged stale resources: $name"
 done
 # Source validation still runs before any forced replacement.
 if ./scripts/install-macos-app.sh -f "$tmp/stage" /usr/local \
@@ -62,6 +70,14 @@ for name in BasiliskII SheepShaver; do
     [ "$(cat "$tmp/stage/usr/local/Applications/$name.app/Contents/MacOS/$name")" = "updated-$name" ] ||
         fail "failed force install did not restore $name"
 done
+# A single-application target also force-reinstalls by default.
+printf 'basilisk-only\n' > "$tmp/build/BasiliskII/Release/BasiliskII.app/Contents/MacOS/BasiliskII"
+make --no-print-directory install-basilisk MACEMUS_PLATFORM=macos MACEMUS_HOMEBREW=off \
+    MACEMUS_HOST_ARCH=arm64 XCODEBUILD=: BUILD_ROOT="$tmp/build" \
+    PREFIX=/usr/local DESTDIR="$tmp/stage" >"$tmp/log" ||
+    fail 'default single-app reinstall failed'
+[ "$(cat "$tmp/stage/usr/local/Applications/BasiliskII.app/Contents/MacOS/BasiliskII")" = "basilisk-only" ] ||
+    fail 'default single-app install retained earlier executable'
 # Reject unsupported install options rather than interpolating them into shell.
 if make -n --no-print-directory install MACEMUS_PLATFORM=macos \
     MACEMUS_HOMEBREW=off MACEMUS_HOST_ARCH=arm64 \
