@@ -1311,6 +1311,7 @@
 					../include,
 					../CrossPlatform,
 				);
+				INFOPLIST_EXPAND_BUILD_SETTINGS = YES;
 				INFOPLIST_FILE = Info.plist.in;
 				INFOPLIST_PREFIX_HEADER = "";
 				INFOPLIST_PREPROCESS = NO;
@@ -1383,7 +1384,7 @@
 					../include,
 					../CrossPlatform,
 				);
-				INFOPLIST_EXPAND_BUILD_SETTINGS = NO;
+				INFOPLIST_EXPAND_BUILD_SETTINGS = YES;
 				INFOPLIST_FILE = Info.plist.in;
 				INFOPLIST_PREFIX_HEADER = "";
 				INFOPLIST_PREPROCESS = NO;

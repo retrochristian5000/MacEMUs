@@ -369,7 +369,8 @@
 					"USE_XCODE=1",
 				);
 				HEADER_SEARCH_PATHS = (
-					/usr/local/include,
+					"$(inherited)",
+					"$(MACEMUS_ARM64_PREFIX)/include",
 					../CrossPlatform,
 					../include,
 					../MacOSX,
@@ -377,6 +378,7 @@
 					../Unix,
 				);
 				OTHER_CFLAGS = "-fwrapv";
+				MACEMUS_ARM64_PREFIX = /opt/homebrew;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 							};
 			name = Debug;
@@ -388,7 +390,8 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_PREPROCESSOR_DEFINITIONS = "USE_XCODE=1";
 				HEADER_SEARCH_PATHS = (
-					/usr/local/include,
+					"$(inherited)",
+					"$(MACEMUS_ARM64_PREFIX)/include",
 					../CrossPlatform,
 					../include,
 					../MacOSX,
@@ -396,6 +399,7 @@
 					../Unix,
 				);
 				OTHER_CFLAGS = "-fwrapv";
+				MACEMUS_ARM64_PREFIX = /opt/homebrew;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 							};
 			name = Release;

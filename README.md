@@ -29,6 +29,21 @@ The deployment target can be overridden explicitly for an older installed
 Xcode with `XCODE_ARGS='MACOSX_DEPLOYMENT_TARGET=11.0'`, provided that
 version of Xcode supports the chosen target.
 
+For Apple Silicon, Basilisk II's arm64 CPU uses GMP and MPFR development
+libraries. The Xcode arm64 header/library search paths default to the native
+Homebrew prefix `/opt/homebrew`; x86_64 link search paths remain at
+`/usr/local/lib`. If the arm64 libraries are installed elsewhere, pass
+`XCODE_ARGS='MACEMUS_ARM64_PREFIX=/path/to/prefix'`. Verify that GMP,
+MPFR, and SDL2 binaries contain the architecture(s) you intend to ship;
+setting a search path cannot convert Intel-only libraries to arm64.
+
+The Xcode CPU-generator helpers run on the *build host* (arm64 on a native
+Apple Silicon shell, or x86_64 on an Intel shell). Do not propagate a global
+`ARCHS=arm64` override into all nested Xcode targets: Basilisk II has
+separate x86_64 and arm64 CPU-library dependencies. Leave Xcode's standard
+architecture resolution intact until we separately redesign that dependency
+graph.
+
 The default build backend is selected by host: Xcode on macOS, the existing
 Autotools/Make files in `src/Unix` on Unix-like hosts, and `src/Windows` on
 MinGW/MSYS. To select explicitly, set `MACEMUS_PLATFORM=macos`, `unix`, or
@@ -39,7 +54,7 @@ directories. For example:
 
 ```sh
 make basilisk CONFIGURATION=Debug
-make all XCODE_ARGS='ARCHS=arm64'
+make all XCODE_ARGS='MACEMUS_ARM64_PREFIX=/opt/homebrew'
 ```
 
 `BUILD_ROOT` changes the macOS output root. On Unix and MinGW, each emulator
@@ -97,6 +112,12 @@ $ make
 $ make check
 $ sudo make install
 ```
+
+These older source-build commands install into the default prefix
+(typically `/usr/local`). If using those libraries for arm64 builds,
+pass that prefix explicitly to Xcode as explained above and confirm their
+architectures first.
+
 On an Intel Mac, the libraries should be cross-built.  
 Change the `configure` command for both GMP and MPFR as follows, and ignore the `make check` command:
 ```
