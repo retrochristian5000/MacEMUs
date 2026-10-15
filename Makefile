@@ -27,25 +27,25 @@ all: basilisk sheepshaver
 
 ifeq ($(MACEMUS_PLATFORM),macos)
 basilisk:
-	$(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj \
+	$(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
 		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(XCODE_ARGS) build
 
 sheepshaver:
-	$(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj \
+	$(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
 		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(XCODE_ARGS) build
 
 clean-basilisk:
-	$(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj \
+	$(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
 		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(XCODE_ARGS) clean
 
 clean-sheepshaver:
-	$(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj \
+	$(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
 		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(XCODE_ARGS) clean

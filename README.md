@@ -18,6 +18,17 @@ make clean-sheepshaver # clean only SheepShaver
 make clean             # clean both
 ```
 
+The active Xcode projects target macOS 12.0 or later, matching the
+supported deployment range of Xcode 27. The Xcode 8 name of SheepShaver's
+project file is historical; it is the active build project. The older
+`SheepShaver.xcodeproj` remains as a legacy reference, not as the default
+backend. Both app builds use explicit Xcode targets. The helper phases use
+Xcode's macOS Clang toolchain with the selected architectures.
+
+The deployment target can be overridden explicitly for an older installed
+Xcode with `XCODE_ARGS='MACOSX_DEPLOYMENT_TARGET=11.0'`, provided that
+version of Xcode supports the chosen target.
+
 The default build backend is selected by host: Xcode on macOS, the existing
 Autotools/Make files in `src/Unix` on Unix-like hosts, and `src/Windows` on
 MinGW/MSYS. To select explicitly, set `MACEMUS_PLATFORM=macos`, `unix`, or
