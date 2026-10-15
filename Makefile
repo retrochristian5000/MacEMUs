@@ -24,6 +24,13 @@ CONFIGURE_ARGS ?=
 # PREFIX is the installed layout; DESTDIR is the packaging/staging root.
 PREFIX ?= /usr/local
 DESTDIR ?=
+# Install flag is intentionally limited to the supported opt-in force mode.
+INSTALL_FLAGS ?=
+ifneq ($(strip $(INSTALL_FLAGS)),)
+ifneq ($(strip $(INSTALL_FLAGS)),-f)
+$(error INSTALL_FLAGS supports only -f)
+endif
+endif
 MACEMUS_BASILISK_APP ?= $(BUILD_ROOT)/BasiliskII/$(CONFIGURATION)/BasiliskII.app
 MACEMUS_SHEEPSHAVER_APP ?= $(BUILD_ROOT)/SheepShaver/$(CONFIGURATION)/SheepShaver.app
 
@@ -236,7 +243,7 @@ endif
 all: basilisk sheepshaver
 
 install-info:
-	@printf 'PREFIX=%s\nDESTDIR=%s\n' '$(PREFIX)' '$(DESTDIR)'
+	@printf 'PREFIX=%s\nDESTDIR=%s\nINSTALL_FLAGS=%s\n' '$(PREFIX)' '$(DESTDIR)' '$(INSTALL_FLAGS)'
 	@printf 'macOS app destination: %s%s/Applications\n' '$(DESTDIR)' '$(PREFIX)'
 	@printf 'Built apps: %s | %s\n' '$(MACEMUS_BASILISK_APP)' '$(MACEMUS_SHEEPSHAVER_APP)'
 
@@ -246,13 +253,13 @@ test-install:
 ifeq ($(MACEMUS_PLATFORM),macos)
 # Bundle copy is separate from the Xcode build and its INSTALL_PATH.
 install: all
-	@./scripts/install-macos-app.sh "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_BASILISK_APP)" "$(MACEMUS_SHEEPSHAVER_APP)"
+	@./scripts/install-macos-app.sh $(INSTALL_FLAGS) "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_BASILISK_APP)" "$(MACEMUS_SHEEPSHAVER_APP)"
 
 install-basilisk: basilisk
-	@./scripts/install-macos-app.sh "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_BASILISK_APP)"
+	@./scripts/install-macos-app.sh $(INSTALL_FLAGS) "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_BASILISK_APP)"
 
 install-sheepshaver: sheepshaver
-	@./scripts/install-macos-app.sh "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_SHEEPSHAVER_APP)"
+	@./scripts/install-macos-app.sh $(INSTALL_FLAGS) "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_SHEEPSHAVER_APP)"
 
 # Build native CPU archive first, sharing configuration and output directories.
 basilisk:
@@ -428,6 +435,7 @@ help:
 		'  make sheepshaver         Build SheepShaver only' \
 		'  make clean               Clean both emulator builds' \
 		'  make install             Install both emulators' \
+		'  make install INSTALL_FLAGS=-f  Replace existing macOS app bundles' \
 		'  make install-basilisk    Install Basilisk II' \
 		'  make install-sheepshaver Install SheepShaver' \
 		'  make install-info        Show destination and bundle paths' \
@@ -450,6 +458,7 @@ help:
 		'Options: MACEMUS_PLATFORM=macos|unix|mingw (auto-detected), CONFIGURATION=Release,' \
 		'         BUILD_ROOT=<path>, XCODE_ARGS=<arguments>,' \
 		'         PREFIX=/usr/local, DESTDIR=<absolute staging root>,' \
+		'         INSTALL_FLAGS=-f (macOS: replace existing bundles),' \
 		'         MACEMUS_BASILISK_APP=<path>, MACEMUS_SHEEPSHAVER_APP=<path>,' \
 		'         CONFIGURE_ARGS=<arguments> (only on first Autotools configure)' \
 		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>' \

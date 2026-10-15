@@ -17,7 +17,23 @@ For example `make install PREFIX=/usr/local DESTDIR=/tmp/pkg` stages
 Use `PREFIX=/` for the normal macOS `/Applications` directory.
 The script copies bundles with `ditto` when available; it rejects
 relative prefixes, dot-segments, missing bundles, and existing
-destinations rather than silently merging obsolete resources.
+destinations rather than silently merging obsolete resources. Reinstalling
+an existing bundle is explicitly supported with `INSTALL_FLAGS=-f`:
+
+```sh
+make install PREFIX=/usr/local DESTDIR=/tmp/pkg INSTALL_FLAGS=-f
+make install-basilisk PREFIX=/ INSTALL_FLAGS=-f
+```
+
+`make -f` is **not** an install switch; it selects a Makefile. Use
+`INSTALL_FLAGS=-f` instead. In force mode, both new applications are
+copied into a temporary directory first. Existing bundles are moved to
+backups before the new copies are renamed into place, so stale files
+are not merged. If replacement fails, the installer attempts to restore
+the previous versions and retains backups when rollback cannot complete.
+Force does not bypass input validation or path checks. Unix component
+installers already overwrite their installed files; this flag controls
+the macOS `.app` replacement procedure.
 
 ```sh
 make install-info
