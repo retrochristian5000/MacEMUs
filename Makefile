@@ -137,7 +137,7 @@ endif
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions
 
 all: basilisk sheepshaver
 
@@ -223,6 +223,11 @@ linker-info:
 test-linker-flags:
 	@./tests/test-linker-flags.sh
 
+# The portable Mac clipboard size/range checks are compiled with conversion
+# warnings enabled and treated as errors, independent of the emulator.
+test-type-conversions:
+	@CXX="$(CXX)" ./tests/test-type-conversions.sh
+
 cppflags-info:
 	@printf 'Target CPPFLAGS: %s\nHost CPPFLAGS: %s\n' '$(CPPFLAGS)' '$(HOST_CPPFLAGS)'
 	@printf '%s\n' 'Xcode: MACEMUS_CPPFLAGS for target compilation; MACEMUS_HOST_CPPFLAGS for CPU generators.'
@@ -253,6 +258,7 @@ help:
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
 		'  make linker-info         Audit target/host LDFLAGS routing' \
 		'  make test-linker-flags   Run non-Xcode linker flag smoke tests' \
+		'  make test-type-conversions  Check clipboard narrowing boundaries' \
 		'  make clean-basilisk      Clean Basilisk II only' \
 		'  make clean-sheepshaver   Clean SheepShaver only' \
 		'' \

@@ -211,6 +211,27 @@ must still be checked on macOS. Both active Xcode apps still reference
 substituted by this flag change. Existing Unix build directories require
 reconfiguration to pick up the revised templates.
 
+### Conversion checks for the macOS clipboard
+
+Both emulator clipboard implementations previously narrowed Cocoa's 64-bit
+`NSUInteger` scrap lengths into the emulated 32-bit allocation register,
+then copied the original size. This could allocate less than it copied.
+The implementations now reject out-of-range lengths before conversion and
+copy exactly the checked size. The shared `mac_clip_bounds.h` also validates
+two-byte style counts plus 20-byte records, signed style offsets and ranges
+before `subdataWithRange:`, and PICT dimensions before narrowing them to
+16-bit values. Fixed-size 68K trap arrays use explicit 32-bit conversions.
+
+```sh
+make test-type-conversions   # standalone C++11 test, no Xcode required
+```
+
+The regression test builds with `-Wall -Wextra -Wconversion
+-Wsign-conversion -Werror` and exercises zero, boundary, overflow,
+negative-offset, reversed-range, and oversized-image cases. This does
+**not** imply that both complete Xcode targets build warning-free: the
+remaining Cocoa/SDL and architecture-specific casts require native builds.
+
 ## Existing emulator build instructions
 
 #### BasiliskII

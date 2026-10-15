@@ -31,6 +31,7 @@
 #include "emul_op.h"
 #include "autorelease.h"
 #include "pict.h"
+#include "../include/mac_clip_bounds.h"
 
 #define DEBUG 0
 #include "debug.h"
@@ -140,7 +141,7 @@ static int GetMacScriptManagerVariable(uint16_t varID)
 		0x20, 0x1f,							// move.l	 (a7)+,d0
 		M68K_RTS >> 8, M68K_RTS & 0xff
 	};
-	r.d[0] = sizeof(proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 	if (proc_area) {
@@ -166,7 +167,7 @@ static ScriptCode ScriptNumberForFontID(int16_t fontID)
 		0x30, 0x1f,							// move.w	(sp)+,d0
 		M68K_RTS >> 8, M68K_RTS & 0xff
 	};
-	r.d[0] = sizeof(proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 	if (proc_area) {
@@ -313,7 +314,7 @@ static NSUInteger CountMacFonts()
 		0x30, 0x1f,						// move.w (sp)+,D0
 		M68K_RTS >> 8, M68K_RTS & 0xff
 	};
-	r.d[0] = sizeof(proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 	int16_t fontCount = 0;
@@ -354,7 +355,7 @@ static int16_t MacFontIDAtIndex(NSUInteger index)
 		0xa9, 0x9b,						// SetResLoad()
 		M68K_RTS >> 8, M68K_RTS & 0xff
 	};
-	r.d[0] = sizeof(get_res_handle_proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(get_res_handle_proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 
@@ -386,7 +387,7 @@ static int16_t MacFontIDAtIndex(NSUInteger index)
 			0, 0
 		};
 
-		r.d[0] = sizeof(get_info_proc);
+		r.d[0] = static_cast<uint32_t>(sizeof(get_info_proc));
 		Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 		proc_area = r.a[0];
 
@@ -462,7 +463,7 @@ static NSString *FontNameFromFontID(int16_t fontID)
 		M68K_RTS >> 8, M68K_RTS & 0xff
 	};
 
-	r.d[0] = sizeof(proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 
@@ -512,7 +513,7 @@ static int16_t FontIDFromFontName(NSString *fontName)
 		0, 0
 	};
 
-	r.d[0] = sizeof(proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 	int16_t fontID = 0;
@@ -584,9 +585,14 @@ static NSAttributedString *AttributedStringFromMacTEXTAndStyl(NSData *textData, 
 		return nil;
 
 	uint16_t elements = CFSwapInt16BigToHost(*(uint16_t *)bytes);
-	const NSUInteger elementSize = 20;
 
-	if (length < elements * elementSize)
+	// Mac 'styl' starts with a two-byte count followed by 20-byte records.
+	// Account for the count itself before reading the first record.
+	if (!macemu_clip::styl_records_fit(length, elements))
+		return nil;
+
+	const NSUInteger textLength = [textData length];
+	if (!macemu_clip::text_length_fits(textLength))
 		return nil;
 
 	NSUInteger cursor = 2;
@@ -605,9 +611,14 @@ static NSAttributedString *AttributedStringFromMacTEXTAndStyl(NSData *textData, 
 		int32_t nextChar;
 
 		if (i + 1 == elements)
-			nextChar = [textData length];
+			nextChar = static_cast<int32_t>(textLength);
 		else
 			nextChar = CFSwapInt32BigToHost(*(int32_t *)(bytes + cursor));
+
+		// Untrusted style offsets are signed 32-bit positions in textData.
+		// Reject negative, reversed or out-of-bounds ranges before Cocoa copies.
+		if (!macemu_clip::text_range_fits(textLength, startChar, nextChar))
+			return nil;
 
 		NSMutableDictionary *attrs = [[NSMutableDictionary alloc] init];
 		NSColor *color = [NSColor colorWithDeviceRed:(CGFloat)red / 65535.0 green:(CGFloat)green / 65535.0 blue:(CGFloat)blue / 65535.0 alpha:1.0];
@@ -930,8 +941,8 @@ static NSData *ConvertImageToPICT(NSImage *image) {
 	}
 
 	NSImageRep *rep = [[image representations] objectAtIndex:0];
-	NSUInteger width;
-	NSUInteger height;
+	NSInteger width;
+	NSInteger height;
 
 	if ([rep isKindOfClass:[NSBitmapImageRep class]]) {
 		width = [rep pixelsWide];
@@ -940,6 +951,11 @@ static NSData *ConvertImageToPICT(NSImage *image) {
 		width = lrint([image size].width);
 		height = lrint([image size].height);
 	}
+
+	// ConvertRGBAToPICT takes 16-bit dimensions. Reject invalid image sizes
+	// before constructing a bitmap or narrowing these signed Cocoa values.
+	if (!macemu_clip::pict_dimensions_fit(width, height))
+		return nil;
 
 	// create a new bitmap image rep in our desired format, following the advice here:
 	// https://developer.apple.com/library/mac/#releasenotes/Cocoa/AppKitOlderNotes.html#X10_6Notes
@@ -962,14 +978,16 @@ static NSData *ConvertImageToPICT(NSImage *image) {
 
 	unsigned char *rgba = [bitmap bitmapData];
 
-	long bufSize = ConvertRGBAToPICT(NULL, 0, rgba, width, height);
+	long bufSize = ConvertRGBAToPICT(NULL, 0, rgba,
+		static_cast<uint16_t>(width), static_cast<uint16_t>(height));
 
 	NSData *pictData = nil;
 
 	if (bufSize > 0) {
 		uint8_t *buf = (uint8_t *)malloc(bufSize);
 
-		long pictSize = ConvertRGBAToPICT(buf, bufSize, rgba, width, height);
+		long pictSize = ConvertRGBAToPICT(buf, bufSize, rgba,
+			static_cast<uint16_t>(width), static_cast<uint16_t>(height));
 
 		if (pictSize > 0)
 			pictData = [NSData dataWithBytes:buf length:pictSize];
@@ -1027,7 +1045,7 @@ static void ZeroMacClipboard()
 		0x58, 0x8f,					// addq.l	#4,sp
 		M68K_RTS >> 8, M68K_RTS & 0xff
 	};
-	r.d[0] = sizeof(proc);
+	r.d[0] = static_cast<uint32_t>(sizeof(proc));
 	Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 	uint32_t proc_area = r.a[0];
 
@@ -1051,7 +1069,10 @@ static void WriteDataToMacClipboard(NSData *pbData, uint32_t type)
 	D(bug("Writing data %s to Mac clipboard with type '%c%c%c%c'\n", [[pbData description] UTF8String],
 		  (type >> 24) & 0xff, (type >> 16) & 0xff, (type >> 8) & 0xff, type & 0xff));
 
-	if ([pbData length] == 0)
+	const NSUInteger scrapLength = [pbData length];
+	// The emulated allocation size is a 32-bit register even on 64-bit Macs.
+	// Do not truncate an NSUInteger and then copy the original larger length.
+	if (!macemu_clip::scrap_length_fits(scrapLength))
 		return;
 
 	NSNumber *typeNum = [NSNumber numberWithInteger:type];
@@ -1063,7 +1084,7 @@ static void WriteDataToMacClipboard(NSData *pbData, uint32_t type)
 
 	// Allocate space for new scrap in MacOS side
 	M68kRegisters r;
-	r.d[0] = [pbData length];
+	r.d[0] = static_cast<uint32_t>(scrapLength);
 	Execute68kTrap(0xa71e, &r);				// NewPtrSysClear()
 	uint32_t scrap_area = r.a[0];
 
@@ -1071,7 +1092,7 @@ static void WriteDataToMacClipboard(NSData *pbData, uint32_t type)
 	if (scrap_area) {
 		uint8_t * const data = Mac2HostAddr(scrap_area);
 
-		memcpy(data, [pbData bytes], [pbData length]);
+		memcpy(data, [pbData bytes], scrapLength);
 
 		// Add new data to clipboard
 		static uint8_t proc[] = {
@@ -1083,7 +1104,7 @@ static void WriteDataToMacClipboard(NSData *pbData, uint32_t type)
 			0x58, 0x8f,					// addq.l	#4,sp
 			M68K_RTS >> 8, M68K_RTS & 0xff
 		};
-		r.d[0] = sizeof(proc);
+		r.d[0] = static_cast<uint32_t>(sizeof(proc));
 		Execute68kTrap(0xa71e, &r);		// NewPtrSysClear()
 		uint32_t proc_area = r.a[0];
 
