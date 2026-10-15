@@ -21,6 +21,19 @@ BUILD_ROOT ?= $(CURDIR)/build
 XCODE_ARGS ?=
 CONFIGURE_ARGS ?=
 
+# CPPFLAGS are compile-time preprocessing options (-I/-D/-U), not link flags.
+# Pass them to Xcode's C and C++ compiler settings, preserving native headers.
+# Host generator tools have an independent HOST_CPPFLAGS namespace.
+CPPFLAGS ?=
+HOST_CPPFLAGS ?=
+MACEMUS_XCODE_CPP_ARGS :=
+ifneq ($(strip $(CPPFLAGS)),)
+MACEMUS_XCODE_CPP_ARGS += MACEMUS_CPPFLAGS="$(CPPFLAGS)"
+endif
+ifneq ($(strip $(HOST_CPPFLAGS)),)
+MACEMUS_XCODE_CPP_ARGS += MACEMUS_HOST_CPPFLAGS="$(HOST_CPPFLAGS)"
+endif
+
 # Homebrew is optional. Prefer its common bin/include/lib prefix rather than
 # querying every installed formula. Unlinked (including keg-only) GMP/MPFR
 # installations are resolved only when shared headers or libraries are absent.
@@ -113,7 +126,7 @@ endif
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info
 
 all: basilisk sheepshaver
 
@@ -122,25 +135,25 @@ basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) build
 
 sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) build
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) build
 
 clean-basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
-		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) clean
 
 clean-sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) clean
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(XCODE_ARGS) clean
 
 else
 ifeq ($(MACEMUS_PLATFORM),mingw)
@@ -188,6 +201,12 @@ clean: clean-basilisk clean-sheepshaver
 
 
 # Diagnose Homebrew without changing installed packages or shell configuration.
+# Inspect flag separation without running configure or the emulator builders.
+cppflags-info:
+	@printf 'Target CPPFLAGS: %s\nHost CPPFLAGS: %s\n' '$(CPPFLAGS)' '$(HOST_CPPFLAGS)'
+	@printf '%s\n' 'Xcode: MACEMUS_CPPFLAGS for target compilation; MACEMUS_HOST_CPPFLAGS for CPU generators.'
+	@printf '%s\n' 'Unix: CPPFLAGS on configure; project include paths are retained by generated Makefiles.'
+
 homebrew-info:
 ifeq ($(MACEMUS_PLATFORM),macos)
 	@printf 'Homebrew mode: %s\nHost architecture: %s\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
@@ -210,10 +229,12 @@ help:
 		'  make sheepshaver         Build SheepShaver only' \
 		'  make clean               Clean both emulator builds' \
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
+		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
 		'  make clean-basilisk      Clean Basilisk II only' \
 		'  make clean-sheepshaver   Clean SheepShaver only' \
 		'' \
 		'Options: MACEMUS_PLATFORM=macos|unix|mingw (auto-detected), CONFIGURATION=Release,' \
 		'         BUILD_ROOT=<path>, XCODE_ARGS=<arguments>,' \
 		'         CONFIGURE_ARGS=<arguments> (only on first Autotools configure)' \
-		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>'
+		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>' \
+		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>'

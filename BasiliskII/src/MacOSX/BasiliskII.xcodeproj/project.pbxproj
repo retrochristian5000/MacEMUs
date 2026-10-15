@@ -1088,7 +1088,8 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				ONLY_ACTIVE_ARCH = NO;
-				OTHER_CFLAGS = "-fwrapv";
+				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=arm64]" = (
 					"-luae_cpu_arm64",
@@ -1197,7 +1198,8 @@
 					"$(MACEMUS_X86_64_PREFIX)/lib",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				OTHER_CFLAGS = "-fwrapv";
+				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=arm64]" = (
 					"-luae_cpu_arm64",

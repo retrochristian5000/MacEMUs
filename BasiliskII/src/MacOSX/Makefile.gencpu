@@ -7,8 +7,11 @@ HOST_ARCH ?= $(shell uname -m)
 HOST_CC ?= xcrun --sdk macosx clang
 HOST_CXX ?= xcrun --sdk macosx clang++
 HOST_ARCH_FLAGS := -arch $(HOST_ARCH)
-CFLAGS = -DUSE_XCODE=1 -DUSE_JIT_FPU -I. -I../uae_cpu -I../Unix
-CXXFLAGS = -stdlib=libc++ $(CFLAGS)
+# Build-host preprocessor options stay separate from guest target CPPFLAGS.
+HOST_CPPFLAGS ?=
+GENCPU_CPPFLAGS = -DUSE_XCODE=1 -DUSE_JIT_FPU -I. -I../uae_cpu -I../Unix
+CFLAGS =
+CXXFLAGS = -stdlib=libc++
 
 all: $(DST)/gencpu $(DST)/gencomp
 	cd $(DST); ./gencpu; ./gencomp
@@ -20,16 +23,16 @@ $(DST)/gencomp: $(addprefix $(DST)/, defs68k.o readcpu.o gencomp.o)
 	$(HOST_CXX) $(HOST_ARCH_FLAGS) $(CXXFLAGS) -o $@ $^
 
 $(DST)/%.o: %.c
-	$(HOST_CC) $(HOST_ARCH_FLAGS) $(CFLAGS) -o $@ -c $<
+	$(HOST_CC) $(HOST_ARCH_FLAGS) $(HOST_CPPFLAGS) $(GENCPU_CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
 $(DST)/%.o: %.cpp
-	$(HOST_CXX) $(HOST_ARCH_FLAGS) $(CXXFLAGS) -o $@ -c $<
+	$(HOST_CXX) $(HOST_ARCH_FLAGS) $(HOST_CPPFLAGS) $(GENCPU_CPPFLAGS) $(CXXFLAGS) -o $@ -c $<
 
 $(DST)/defs68k.c: $(DST)/build68k
 	$< < $(SRC)/table68k > $@
 
 $(DST)/build68k: $(SRC)/build68k.c
 	mkdir -p $(DST)
-	$(HOST_CC) $(HOST_ARCH_FLAGS) $(CFLAGS) -o $@ $<
+	$(HOST_CC) $(HOST_ARCH_FLAGS) $(HOST_CPPFLAGS) $(GENCPU_CPPFLAGS) $(CFLAGS) -o $@ $<
 
 clean:; rm -fr $(DST)

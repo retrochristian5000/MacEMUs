@@ -288,7 +288,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "make -f Makefile.gencpu\n";
+			shellScript = "make -f Makefile.gencpu HOST_CPPFLAGS=\"${MACEMUS_HOST_CPPFLAGS:-${HOST_CPPFLAGS:-}}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -431,7 +431,8 @@
 					../Unix,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				OTHER_CFLAGS = "-fwrapv";
+				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -457,7 +458,8 @@
 					../Unix,
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				OTHER_CFLAGS = "-fwrapv";
+				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

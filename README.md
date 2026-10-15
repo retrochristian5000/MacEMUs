@@ -134,6 +134,43 @@ satisfy those existing framework references. SDL2 library-style linking and
 app bundling require a separate Xcode integration change; no filesystem
 symlinks or forced Homebrew links are created here.
 
+### CPPFLAGS: preprocessor and host-tool isolation
+
+Use `CPPFLAGS` for preprocessing only (such as `-I`, `-D`, and `-U`).
+Do **not** put linker options (`-L`, `-l`, `-framework`) or CPU-selection
+flags (`-arch`) here. Homebrew's automatically detected headers already
+arrive through the existing Xcode `HEADER_SEARCH_PATHS`; generic CPPFLAGS
+remain an additional user-controlled layer.
+
+```sh
+make cppflags-info CPPFLAGS='-DMACEMUS_TRACE=1 -I/custom/include'
+make basilisk CPPFLAGS='-DMACEMUS_TRACE=1 -I/custom/include'
+make sheepshaver CPPFLAGS='-DMACEMUS_TRACE=1'
+make basilisk HOST_CPPFLAGS='-DHOST_GENERATOR_TRACE=1'
+```
+
+On macOS, the root Makefile passes target `CPPFLAGS` to the
+`MACEMUS_CPPFLAGS` Xcode build setting, which the active app/CPU targets
+use for both C/Objective-C and C++/Objective-C++ compilation. It
+**retains** Basilisk II's `-fwrapv`, SheepShaver's existing C++ flag
+inheritance, and Xcode's project-specific includes and definitions.
+Direct Xcode invocation can set `MACEMUS_CPPFLAGS` explicitly.
+
+Basilisk II's generated CPU tools are *executables for the build host*,
+not guest-target binaries. They use their own fixed include/definition
+flags plus `HOST_CPPFLAGS` (`MACEMUS_HOST_CPPFLAGS` under Xcode).
+Guest target CPPFLAGS are deliberately **not** forwarded to these
+generator compilations or their link steps.
+
+On Unix/MinGW, Autoconf uses CPPFLAGS during initial configuration and
+the configured emulator Makefiles use CPPFLAGS in compilation. Their
+internal includes are now appended with GNU make's `override` directive,
+so a root command-line `CPPFLAGS=...` will not erase the paths.
+Existing configured Makefiles must be regenerated to obtain this change;
+the root Makefile intentionally does not rerun Autoconf unexpectedly.
+Neither this change nor `make cppflags-info` verifies successful
+native compilation.
+
 ## Existing emulator build instructions
 
 #### BasiliskII

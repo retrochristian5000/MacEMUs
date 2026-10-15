@@ -245,7 +245,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "make -f Makefile.gencpu_2021\n";
+			shellScript = "make -f Makefile.gencpu_2021 HOST_CPPFLAGS=\"${MACEMUS_HOST_CPPFLAGS:-${HOST_CPPFLAGS:-}}\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -379,7 +379,8 @@
 					../uae_cpu_2021,
 					../Unix,
 				);
-				OTHER_CFLAGS = "-fwrapv";
+				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
 				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
 				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
@@ -404,7 +405,8 @@
 					../uae_cpu_2021,
 					../Unix,
 				);
-				OTHER_CFLAGS = "-fwrapv";
+				OTHER_CFLAGS = "-fwrapv $(MACEMUS_CPPFLAGS)";
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
 				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
 				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";

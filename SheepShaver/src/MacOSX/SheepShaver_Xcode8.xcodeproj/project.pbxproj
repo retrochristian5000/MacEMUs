@@ -1205,6 +1205,7 @@
 				INSTALL_PATH = /usr/local/lib;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				OTHER_CFLAGS = "$(inherited) $(MACEMUS_CPPFLAGS)";
 				PRODUCT_NAME = kpx_cpu;
 							};
 			name = Debug;
@@ -1247,6 +1248,7 @@
 				INSTALL_PATH = /usr/local/lib;
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
+				OTHER_CFLAGS = "$(inherited) $(MACEMUS_CPPFLAGS)";
 				PRODUCT_NAME = kpx_cpu;
 							};
 			name = Release;
@@ -1333,7 +1335,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "$(inherited) $(MACEMUS_CPPFLAGS)";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=arm64]" = "-lkpx_cpu";
@@ -1410,7 +1412,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "$(inherited) $(MACEMUS_CPPFLAGS)";
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				"OTHER_LDFLAGS[arch=arm64]" = "-lkpx_cpu";
