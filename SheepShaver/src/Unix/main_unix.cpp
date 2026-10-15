@@ -112,6 +112,7 @@
 #include "rom_patches.h"
 #include "startup_limits.h"
 #include "startup_rom_config.h"
+#include "rom_image_reader.h"
 #include "user_strings.h"
 #include "vm_alloc.h"
 #include "sigsegv.h"
@@ -661,33 +662,33 @@ static bool load_mac_rom(void)
         }
     }
     printf("%s", GetString(STR_READING_ROM_FILE));
-    const off_t rom_size = lseek(rom_fd, 0, SEEK_END);
-    if (rom_size < 0 || lseek(rom_fd, 0, SEEK_SET) < 0) {
+    const off_t file_size = lseek(rom_fd, 0, SEEK_END);
+    if (file_size <= 0 ||
+        static_cast<uint64_t>(file_size) > sheep_rom::kMaxFileSize ||
+        lseek(rom_fd, 0, SEEK_SET) < 0) {
         close(rom_fd);
-        ErrorAlert(GetString(STR_ROM_FILE_READ_ERR));
+        ErrorAlert("ROM file is empty, unreadable, or exceeds the 16 MiB ROM container limit.");
         return false;
     }
-    // CHRP parsing uses strstr, so terminate the bytes that were read.
-    uint8 *rom_tmp = new uint8[ROM_SIZE + 1];
+    const size_t needed = static_cast<size_t>(file_size);
+    uint8 *rom_tmp = new uint8[needed];
     size_t actual = 0;
-    bool read_error = false;
-    while (actual < ROM_SIZE) {
-        ssize_t n = read(rom_fd, rom_tmp + actual, ROM_SIZE - actual);
+    bool failed = false;
+    while (actual < needed) {
+        const ssize_t n = read(rom_fd, rom_tmp + actual, needed - actual);
         if (n < 0 && errno == EINTR) continue;
-        if (n < 0) { read_error = true; break; }
-        if (n == 0) break;
+        if (n <= 0) { failed = true; break; }
         actual += static_cast<size_t>(n);
     }
     close(rom_fd);
-    rom_tmp[actual] = 0;
-    const bool decoded = !read_error && actual != 0 &&
+    const bool decoded = !failed && actual == needed &&
         DecodeROM(rom_tmp, static_cast<uint32>(actual));
     delete[] rom_tmp;
     if (!decoded) {
-        ErrorAlert(GetString(read_error || rom_size == ROM_SIZE ?
-            STR_ROM_FILE_READ_ERR : STR_ROM_SIZE_ERR));
+        ErrorAlert(GetString(failed ? STR_ROM_FILE_READ_ERR : STR_ROM_SIZE_ERR));
         return false;
     }
+
     return true;
 }
 

@@ -10,7 +10,7 @@ and startup diagnostics work; it does not replace their checks.
 | --- | --- | --- |
 | ARM64 native `SheepShaver.app` | Existing build route; runtime unverified | `make sheepshaver` on Apple Silicon |
 | Cocoa configuration before SDL | Integrated; runtime unverified | `make sheepshaver-settings` |
-| CHRP New World `Mac OS ROM` decoding | Existing parser, has 9.2.x branch; no ROM verified | Inspect guest ROM identity, image bounds and nanokernel string |
+| CHRP New World `Mac OS ROM` decoding | Bounded lzss/prcl parser and 16 MiB container loader implemented; **no real 9.2.2 ROM verified** | Synthetic OldWorld/NewWorld CHRP tests via `make test-sheepshaver-rom-verification` |
 | PPC32 BAT/hashed page table/MMU | **Standalone experimental module imported, NOT integrated** | `make test-sheepshaver-92-mmu` |
 | CPU MSR, SPRs, DSI/ISI, syscall and privileged exception wiring | Missing | One CPU interpreter and one address translator, tested before JIT |
 | New World nanokernel v2 configuration handoff | Missing | KDP/ConfigInfo, ROM entry, exception vector baselines |
@@ -34,6 +34,23 @@ Source research: public `OS921-BOOT-PLAN.md` and
 2026-08-10 NewSheep report (9.2.1 desktop, 9.2.2 installer).
 Those results were observed on different forks and hardware; do not
 transfer their boot claims to this repository.
+
+## ROM identity and container verification (2026-10-15)
+
+`DecodeROM` now verifies recognized decoded ROM signatures (Boot TNT,
+Alchemy, Zanzibar, Gazelle, Gossamer and NewWorld). It no longer accepts
+a CHRP file solely because an unbounded decompressor returned. The
+ROM file loader reads complete containers up to 16 MiB rather than
+truncating at the decoded 4 MiB length. CHRP header offsets, parcel
+linked-list entries, and LZSS output are bounded. Synthetic fixtures
+cover OldWorld/plain, NewWorld/CHRP lzss, NewWorld/CHRP prcl, truncated
+containers, malformed offsets, and missing ROM signatures.
+
+**Validation boundary:** a recognized NewWorld ROM is not necessarily
+a 9.2.2 ROM, and acceptance is not proof that 9.2.2 will boot. The ROM
+nanokernel v2 and device-tree/PowerPC MMU requirements are still missing
+in the running emulator. Real Apple ROMs are neither bundled nor
+validated by this test.
 
 ## Next integration gates
 

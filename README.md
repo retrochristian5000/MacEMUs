@@ -146,6 +146,23 @@ tail -n 80 "$HOME/Library/Logs/SheepShaver.log"
 The portable test covers ROM fallback logic and source wiring; Cocoa
 display and actual ROM/guest boot require a native macOS runtime.
 
+### ROM verification for newer New World images
+
+The ROM reader supports complete CHRP containers up to 16 MiB even
+when the decoded ROM is 4 MiB. It validates bounded `lzss` and `prcl`
+parcels, refuses malformed sizes/offsets or decompression overflow,
+and checks the decoded ROM identity rather than accepting arbitrary
+data. Old World identities remain recognized; NewWorld is not a
+claim that Mac OS 9.2.2 will boot.
+
+```sh
+make test-sheepshaver-rom-verification
+```
+
+The test generates its own synthetic ROM fixtures and does not use
+Apple firmware. See the Mac OS 9.2.2 compatibility ledger for remaining
+nanokernel/MMU and device model work.
+
 ### Experimental Mac OS 9.2.x groundwork
 
 New World Mac OS 9.2.x requires a guest PowerPC32 MMU (BAT,

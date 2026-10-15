@@ -29,6 +29,7 @@
 #include "sysdeps.h"
 #include "rom_patches.h"
 #include "startup_limits.h"
+#include "rom_image_reader.h"
 #include "main.h"
 #include "prefs.h"
 #include "cpu_emulation.h"
@@ -77,134 +78,19 @@ static bool patch_nanokernel(void);
 static bool patch_68k(void);
 
 
-// Decode LZSS data
-static void decode_lzss(const uint8 *src, uint8 *dest, int size)
-{
-	char dict[0x1000];
-	int run_mask = 0, dict_idx = 0xfee;
-	for (;;) {
-		if (run_mask < 0x100) {
-			// Start new run
-			if (--size < 0)
-				break;
-			run_mask = *src++ | 0xff00;
-		}
-		bool bit = run_mask & 1;
-		run_mask >>= 1;
-		if (bit) {
-			// Verbatim copy
-			if (--size < 0)
-				break;
-			int c = *src++;
-			dict[dict_idx++] = c;
-			*dest++ = c;
-			dict_idx &= 0xfff;
-		} else {
-			// Copy from dictionary
-			if (--size < 0)
-				break;
-			int idx = *src++;
-			if (--size < 0)
-				break;
-			int cnt = *src++;
-			idx |= (cnt << 4) & 0xf00;
-			cnt = (cnt & 0x0f) + 3;
-			while (cnt--) {
-				char c = dict[idx++];
-				dict[dict_idx++] = c;
-				*dest++ = c;
-				idx &= 0xfff;
-				dict_idx &= 0xfff;
-			}
-		}
-	}
-}
-
-// Decode parcels of ROM image (MacOS 9.X and even earlier)
-void decode_parcels(const uint8 *src, uint8 *dest, int size)
-{
-	uint32 parcel_offset = 0x14;
-	D(bug("Offset   Type Name\n"));
-	while (parcel_offset != 0) {
-		const uint32 *parcel_data = (uint32 *)(src + parcel_offset);
-		uint32 next_offset = ntohl(parcel_data[0]);
-		uint32 parcel_type = ntohl(parcel_data[1]);
-		D(bug("%08x %c%c%c%c %s\n", parcel_offset,
-			  (parcel_type >> 24) & 0xff, (parcel_type >> 16) & 0xff,
-			  (parcel_type >> 8) & 0xff, parcel_type & 0xff, &parcel_data[6]));
-		if (parcel_type == FOURCC('r','o','m',' ')) {
-			uint32 lzss_offset  = ntohl(parcel_data[2]);
-			uint32 lzss_size = ((uintptr)src + next_offset) - ((uintptr)parcel_data + lzss_offset);
-			decode_lzss((uint8 *)parcel_data + lzss_offset, dest, lzss_size);
-		}
-		parcel_offset = next_offset;
-	}
-}
-
-
-/*
- *  Decode ROM image, 4 MB plain images or NewWorld images
- */
-
+// Validate the *decoded* ROM identity as well as the CHRP container.
+// This accepts the 9.2.x parcel format without claiming its guest boots.
 bool DecodeROM(uint8 *data, uint32 size)
 {
-	if (size == ROM_SIZE) {
-		// Plain ROM image
-		memcpy(ROMBaseHost, data, ROM_SIZE);
-		return true;
-	}
-	else if (strncmp((char *)data, "<CHRP-BOOT>", 11) == 0) {
-		// CHRP compressed ROM image
-		uint32 image_offset, image_size;
-		bool decode_info_ok = false;
-		
-		char *s = strstr((char *)data, "constant lzss-offset");
-		if (s != NULL && s >= (char *)data + 7) {
-			// Probably a plain LZSS compressed ROM image
-			if (sscanf(s - 7, "%06x", &image_offset) == 1) {
-				s = strstr((char *)data, "constant lzss-size");
-				if (s != NULL && s >= (char *)data + 7 &&
-				    sscanf(s - 7, "%06x", &image_size) == 1)
-					decode_info_ok = true;
-			}
-		}
-		else {
-			// Probably a MacOS 9.2.x ROM image
-			s = strstr((char *)data, "constant parcels-offset");
-			if (s != NULL && s >= (char *)data + 7) {
-				if (sscanf(s - 7, "%06x", &image_offset) == 1) {
-					s = strstr((char *)data, "constant parcels-size");
-					if (s != NULL && s >= (char *)data + 7 &&
-				    sscanf(s - 7, "%06x", &image_size) == 1)
-						decode_info_ok = true;
-				}
-			}
-		}
-		
-		// No valid information to decode the ROM found?
-		if (!decode_info_ok)
-			return false;
-		// Refuse malformed offsets before dereferencing the image payload.
-		if (!sheep_startup::rom_payload_fits(size, image_offset, image_size))
-			return false;
-
-		// Check signature, this could be a parcels-based ROM image
-		uint32 rom_signature = ntohl(*(uint32 *)(data + image_offset));
-		if (rom_signature == FOURCC('p','r','c','l')) {
-			D(bug("Offset of parcels data: %08x\n", image_offset));
-			D(bug("Size of parcels data: %08x\n", image_size));
-			decode_parcels(data + image_offset, ROMBaseHost, image_size);
-		}
-		else {
-			D(bug("Offset of compressed data: %08x\n", image_offset));
-			D(bug("Size of compressed data: %08x\n", image_size));
-			decode_lzss(data + image_offset, ROMBaseHost, image_size);
-		}
-		return true;
-	}
-	return false;
+    sheep_rom::Kind kind = sheep_rom::kInvalid;
+    if (!sheep_rom::decode(data, size, ROMBaseHost, ROM_SIZE, kind)) {
+        fprintf(stderr, "SheepShaver ROM: invalid or unsupported ROM container/identity\n");
+        return false;
+    }
+    fprintf(stderr, "SheepShaver ROM: verified %s ROM identity\n",
+            kind == sheep_rom::kNewWorld ? "NewWorld" : "OldWorld");
+    return true;
 }
-
 
 /*
  *  Search ROM for byte string, return ROM offset (or 0)
