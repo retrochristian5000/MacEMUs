@@ -89,6 +89,27 @@ make sheepshaver
 The standalone boundary test cannot launch the emulator or validate
 any particular ROM, boot image, SDL device or macOS dylib.
 
+### Diagnosing SheepShaver.app exiting immediately
+
+Previously the emulator reported startup errors only on stdout (invisible
+in a Finder launch) and used exit status zero even for failed starts.
+The startup path now logs diagnostic stages and errors to stderr and,
+on macOS, to `~/Library/Logs/SheepShaver.log`.
+
+```sh
+tail -n 80 "$HOME/Library/Logs/SheepShaver.log"
+make test-sheepshaver-app-logging
+```
+
+The last stage reached identifies whether failure occurred during SDL,
+preferences, VM, RAM, ROM loading, device initialization, or boot.
+Startup failures now exit nonzero, `vm_init()` errors are checked, and
+guest, host system, and preference teardown is conditional on successful
+initialization. Early loader errors (dyld, missing dylibs) can occur
+before this log opens; use Console or launch the app binary from a shell
+for those. The regression test checks source-level invariants; a real
+macOS launch is necessary to identify the actual failure on that host.
+
 ## Build either emulator or both
 
 From the repository root:

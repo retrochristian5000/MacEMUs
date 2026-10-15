@@ -90,6 +90,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/stat.h>
+#include <limits.h>
 #include <sys/param.h>
 #include <signal.h>
 #include <string>
@@ -268,6 +269,41 @@ uintptr SheepMem::base = 0x60000000;		// Address of SheepShaver data
 uintptr SheepMem::proc;						// Bottom address of SheepShave procedures
 uintptr SheepMem::data;						// Top of SheepShaver data (stack like storage)
 
+
+// Finder hides stdout. Keep a small per-launch trace in ~/Library/Logs.
+static const char *startup_stage = "process entry";
+static int startup_exit_status = EXIT_FAILURE;
+static bool startup_preferences_ready = false;
+static bool startup_system_ready = false;
+static bool startup_devices_ready = false;
+static void startup_report(const char *level, const char *detail)
+{
+    fprintf(stderr, "SheepShaver [%s] %s: %s\n", startup_stage, level, detail);
+    fflush(stderr);
+#if defined(__APPLE__) && defined(__MACH__)
+    const char *home = getenv("HOME");
+    if (home && home[0] == '/') {
+        char dir[PATH_MAX], path[PATH_MAX];
+        int n = snprintf(dir, sizeof(dir), "%s/Library/Logs", home);
+        if (n > 0 && (size_t)n < sizeof(dir) &&
+            (mkdir(dir, 0700) == 0 || errno == EEXIST)) {
+            n = snprintf(path, sizeof(path), "%s/SheepShaver.log", dir);
+            if (n > 0 && (size_t)n < sizeof(path)) {
+                FILE *f = fopen(path, "a");
+                if (f) {
+                    fprintf(f, "SheepShaver [%s] %s: %s\n", startup_stage, level, detail);
+                    fclose(f);
+                }
+            }
+        }
+    }
+#endif
+}
+static void startup_checkpoint(const char *stage)
+{
+    startup_stage = stage;
+    startup_report("stage", "begin");
+}
 
 // Prototypes
 #if !defined(__APPLE__) || !defined(__x86_64__)
@@ -809,6 +845,7 @@ int main(int argc, char **argv)
 	uint32_t ram_bytes = 0;
 	const char *vmdir = NULL;
 
+	startup_checkpoint("process entry");
 	// Initialize variables
 	RAMBase = 0;
 	tzset();
@@ -829,11 +866,13 @@ int main(int argc, char **argv)
 #endif
 
 #if SDL_PLATFORM_MACOS
+	startup_checkpoint("macOS working directory");
 	set_current_directory();
 #endif
 	
 #ifdef USE_SDL
 	// Initialize SDL system
+	startup_checkpoint("SDL video/audio");
 	if (!init_sdl())
 		goto quit;
 #if SDL_VERSION_ATLEAST(2,0,0)
@@ -848,6 +887,7 @@ int main(int argc, char **argv)
 #endif
 #endif
 	
+	startup_checkpoint("arguments and VM");
 	// Parse command line arguments
 	for (int i=1; i<argc; i++) {
 		if (strcmp(argv[i], "-NSDocumentRevisionsDebugMode") == 0 || strncmp(argv[i], "-psn_", 5) == 0) {
@@ -928,7 +968,9 @@ int main(int argc, char **argv)
 	}
 
 	// Read preferences
+	startup_checkpoint("preferences");
 	PrefsInit(vmdir, argc, argv);
+	startup_preferences_ready = true;
 	// Only use nogui preference if not passed as command line argument
 	if (use_gui == -1)
 		use_gui = !PrefsFindBool("nogui");
@@ -975,17 +1017,24 @@ int main(int argc, char **argv)
 #endif
 
   // Install signal handlers
+	startup_checkpoint("signal handlers");
 	if (!install_signal_handlers())
 		goto quit;
 
 	// Initialize VM system
-	vm_init();
+	startup_checkpoint("host virtual memory");
+	if (vm_init() < 0) {
+		ErrorAlert("Unable to initialize host virtual memory.");
+		goto quit;
+	}
 
 	// Get system info
 	get_system_info();
 
 	// Init system routines
+	startup_checkpoint("host devices");
 	SysInit();
+	startup_system_ready = true;
 
 #ifdef ENABLE_GTK3
 	if (!gui_connection) {
@@ -1012,6 +1061,7 @@ int main(int argc, char **argv)
 #endif
 
 	// Open /dev/zero
+	startup_checkpoint("memory setup");
 	zero_fd = open("/dev/zero", O_RDWR);
 	if (zero_fd < 0) {
 		sprintf(str, GetString(STR_NO_DEV_ZERO_ERR), strerror(errno));
@@ -1054,6 +1104,7 @@ int main(int argc, char **argv)
 	D(bug("DR Cache at %p\n", DRCacheAddr));
 #endif
 	
+	startup_checkpoint("guest RAM mapping");
 	// Reject negative RAM preferences before narrowing to unsigned bytes.
 	if (!sheep_startup::normalize_ram(PrefsFindInt32("ramsize"),
 	    ram_bytes, ram_too_small)) {
@@ -1129,6 +1180,7 @@ int main(int argc, char **argv)
 		goto quit;
 	}
 	
+	startup_checkpoint("guest ROM mapping");
 	// Create area for Mac ROM
 	if (!ram_rom_areas_contiguous) {
 		if (vm_mac_acquire_fixed(ROM_BASE, ROM_AREA_SIZE + SIG_STACK_SIZE) < 0) {
@@ -1155,6 +1207,7 @@ int main(int argc, char **argv)
 		goto quit;
 	}
 
+	startup_checkpoint("emulator memory");
 	// Create area for SheepShaver data
 	if (!SheepMem::Init()) {
 		sprintf(str, GetString(STR_SHEEP_MEM_MMAP_ERR), strerror(errno));
@@ -1162,13 +1215,16 @@ int main(int argc, char **argv)
 		goto quit;
 	}
 	
+	startup_checkpoint("ROM file loading");
 	// Load Mac ROM
 	if (!load_mac_rom())
 		goto quit;
 
 	// Initialize everything
+	startup_checkpoint("guest devices and ROM patches");
 	if (!InitAll(vmdir))
 		goto quit;
+	startup_devices_ready = true;
 	D(bug("Initialization complete\n"));
 
 	// Clear caches (as we loaded and patched code) and write protect ROM
@@ -1220,13 +1276,17 @@ int main(int argc, char **argv)
 #endif
 
 	// Get my thread ID and execute MacOS thread function
+	startup_checkpoint("guest ROM execution");
+	startup_exit_status = EXIT_SUCCESS;
 	emul_thread = pthread_self();
 	D(bug("MacOS thread is %ld\n", emul_thread));
 	emul_func(NULL);
 
 quit:
+	if (startup_exit_status != EXIT_SUCCESS)
+		startup_report("failure", "startup ended before guest ROM execution");
 	Quit();
-	return 0;
+	return startup_exit_status;
 }
 
 
@@ -1276,8 +1336,9 @@ static void Quit(void)
 		free(extra_stack.ss_sp);
 #endif
 
-	// Deinitialize everything
-	ExitAll();
+	// Only tear down fully initialized guest devices.
+	if (startup_devices_ready)
+		ExitAll();
 
 	// Delete SheepShaver globals
 	SheepMem::Exit();
@@ -1305,10 +1366,12 @@ static void Quit(void)
 		close(zero_fd);
 
 	// Exit system routines
-	SysExit();
+	if (startup_system_ready)
+		SysExit();
 
 	// Exit preferences
-	PrefsExit();
+	if (startup_preferences_ready)
+		PrefsExit();
 
 #ifdef ENABLE_MON
 	// Exit mon
@@ -1327,7 +1390,8 @@ static void Quit(void)
 			rpc_method_wait_for_reply(gui_connection, RPC_TYPE_INVALID);
 	}
 
-	exit(0);
+	startup_report("exit", startup_exit_status == EXIT_SUCCESS ? "guest execution ended" : "startup failed");
+	exit(startup_exit_status);
 }
 
 #if !defined(__APPLE__) || !defined(__x86_64__)
@@ -2411,6 +2475,7 @@ void display_alert(int title_id, int prefix_id, int button_id, const char *text)
 
 void ErrorAlert(const char *text)
 {
+	startup_report("error", text);
 	if (gui_connection) {
 		if (rpc_method_invoke(gui_connection, RPC_METHOD_ERROR_ALERT, RPC_TYPE_STRING, text, RPC_TYPE_INVALID) == RPC_ERROR_NO_ERROR &&
 			rpc_method_wait_for_reply(gui_connection, RPC_TYPE_INVALID) == RPC_ERROR_NO_ERROR)
@@ -2437,6 +2502,7 @@ void ErrorAlert(const char *text)
 
 void WarningAlert(const char *text)
 {
+	startup_report("warning", text);
 	if (gui_connection) {
 		if (rpc_method_invoke(gui_connection, RPC_METHOD_WARNING_ALERT, RPC_TYPE_STRING, text, RPC_TYPE_INVALID) == RPC_ERROR_NO_ERROR &&
 			rpc_method_wait_for_reply(gui_connection, RPC_TYPE_INVALID) == RPC_ERROR_NO_ERROR)
