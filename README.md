@@ -181,6 +181,45 @@ these have now been replaced by selectable `-lSDL2` or
 `-framework SDL2` linker options. The framework search path is retained
 for genuine installed frameworks, but no fake framework symlinks are created.
 
+### Diagnose missing SDL2 exports on macOS
+
+`sdl2-compat` implements and exports SDL2 APIs, while using SDL3
+internally. **Do not automatically add `-lSDL3`** to source that uses
+the SDL2 API. Adding it can hide a wrong SDL2 binary/header combination
+rather than solve the underlying mismatch.
+
+```sh
+make homebrew-info
+make check-sdl2-exports
+make check-sdl2-exports MACEMUS_SDL2_TEST_ARCH=arm64
+make check-sdl2-exports SDL2_EXPECT_EXPORTS='SDL_CreateThread SDL_OpenAudioDevice'
+```
+
+On macOS, the check uses the same selected SDL2 library and header paths
+as the root Makefile. It verifies a Mach-O architecture slice with
+`lipo`, compares required `_SDL_*` exports with `nm`, prints the
+dylib's linked dependencies using `otool -L`, then runs a small
+**compile-and-link-only** test with `xcrun clang`. The test calls common
+SDL2 APIs from MacEMUs and never launches SDL or the emulator.
+`SDL2_EXPECT_EXPORTS` accepts additional names from a real undefined
+symbols report. The built-in probe includes `SDL_Init`, `SDL_Quit`,
+`SDL_GetError`, `SDL_OpenAudio`, `SDL_MixAudio`, and
+`SDL_CreateRenderer`.
+
+This diagnostic currently requires a selected `libSDL2.dylib` and a
+matching `SDL.h` under Homebrew or the chosen alternate prefix. It
+reports that **framework mode needs a separate file-specific audit**,
+rather than claiming to have verified a framework. If the selected
+library is missing symbols, verify the installed sdl2-compat version
+and architecture. If the small link succeeds but the full project
+fails, inspect the exact missing symbol(s) and Xcode's effective
+`OTHER_LDFLAGS`, compilation macros, and target architecture.
+
+Passing the export check establishes only that the probed SDL2 symbols
+are exported and linkable; it does **not** verify all SDL2 APIs, correct
+runtime library loading, bundled SDL3 dependencies, or native emulator
+startup.
+
 ### CPPFLAGS: preprocessor and host-tool isolation
 
 Use `CPPFLAGS` for preprocessing only (such as `-I`, `-D`, and `-U`).
@@ -253,9 +292,8 @@ make test-linker-flags
 
 `make test-linker-flags` exercises Make's dry-run routing without
 Xcode. Full linking and compatibility of native Homebrew libraries
-must still be checked on macOS. Both active Xcode apps still reference
-`SDL2.framework`, so a Homebrew SDL2 dylib is not automatically
-substituted by this flag change. Existing Unix build directories require
+must still be checked on macOS. The active Xcode projects now select
+SDL2 linking explicitly through `MACEMUS_SDL2_LINK_FLAGS`. Existing Unix build directories require
 reconfiguration to pick up the revised templates.
 
 ### Conversion checks for the macOS clipboard

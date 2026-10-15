@@ -20,4 +20,13 @@ if make -n --no-print-directory basilisk MACEMUS_PLATFORM=macos MACEMUS_SDL2_LIN
     exit 1
 fi
 grep -F 'SDL2 shared library not found' "$tmp/error" >/dev/null
+# The export probe must use the same make-selected library and header paths.
+out=$(make -n --no-print-directory check-sdl2-exports \
+    MACEMUS_PLATFORM=macos MACEMUS_HOST_ARCH=arm64 \
+    MACEMUS_BREW=/bin/false MACEMUS_BREW_PREFIX="$tmp/brew" \
+    MACEMUS_SDL2_PREFIX="$tmp/opt" \
+    SDL2_EXPECT_EXPORTS='SDL_CreateThread')
+printf '%s\n' "$out" | grep -F 'tests/check-sdl2-exports.sh' >/dev/null
+printf '%s\n' "$out" | grep -F "$tmp/opt/lib" >/dev/null
+printf '%s\n' "$out" | grep -F 'SDL_CreateThread' >/dev/null
 printf '%s\n' 'SDL2 framework/shared-library selection: PASS'

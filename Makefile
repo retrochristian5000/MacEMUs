@@ -73,7 +73,8 @@ ifneq ($(strip $(MACEMUS_BREW)),)
 MACEMUS_BREW_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix 2>/dev/null)
 endif
 MACEMUS_BREW_PREFIX := $(MACEMUS_BREW_PREFIX)
-# SDL2 discovery is diagnostic only; the active Xcode projects still embed a framework.
+# Locate optional SDL2 compatibility headers and dylibs; Xcode now selects
+# shared-library or real-framework linkage without unconditional embedding.
 MACEMUS_SDL2_PREFIX ?= $(shell \
 	if test -n "$(MACEMUS_BREW)" && test -n "$(MACEMUS_BREW_PREFIX)"; then \
 		"$(MACEMUS_BREW)" --prefix --installed sdl2-compat 2>/dev/null || \
@@ -188,7 +189,7 @@ MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-framework SDL2"
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports
 
 all: basilisk sheepshaver
 
@@ -269,7 +270,7 @@ linker-info:
 	@printf 'Target LDFLAGS: %s\nHost LDFLAGS: %s\n' '$(LDFLAGS)' '$(HOST_LDFLAGS)'
 	@printf '%s\n' 'Xcode: MACEMUS_LDFLAGS for app linking; MACEMUS_HOST_LDFLAGS for CPU-generator links.'
 	@printf '%s\n' 'Unix: target LDFLAGS for emulator; HOST_LDFLAGS for executable generators.'
-	@printf '%s\n' 'SDL2.framework linkage remains configured separately from Homebrew SDL2 headers.'
+	@printf '%s\n' 'SDL2 dependency is selected by MACEMUS_SDL2_LINKAGE; inspect with make homebrew-info.'
 
 test-linker-flags:
 	@./tests/test-linker-flags.sh
@@ -280,6 +281,14 @@ test-homebrew-frameworks:
 
 test-sdl2-linkage:
 	@./tests/test-sdl2-linkage.sh
+
+# This is an active macOS symbol/architecture/link probe, not a dry run.
+# SDL3 is a runtime implementation dependency of sdl2-compat; do not add
+# -lSDL3 to SDL2 callers unless a separate direct SDL3 API is used.
+MACEMUS_SDL2_TEST_ARCH ?= $(MACEMUS_HOST_ARCH)
+SDL2_EXPECT_EXPORTS ?=
+check-sdl2-exports:
+	@./tests/check-sdl2-exports.sh "$(MACEMUS_SDL2_SELECTED)" "$(MACEMUS_SDL2_LIBRARY_DIR)" "$(MACEMUS_SDL2_INCLUDE_FLAT)" "$(MACEMUS_SDL2_TEST_ARCH)" "$(SDL2_EXPECT_EXPORTS)"
 
 # The portable Mac clipboard size/range checks are compiled with conversion
 # warnings enabled and treated as errors, independent of the emulator.
@@ -322,6 +331,7 @@ help:
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
 		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
+		'  make check-sdl2-exports Verify SDL2 exports, architecture and link' \
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
 		'  make linker-info         Audit target/host LDFLAGS routing' \
 		'  make test-linker-flags   Run non-Xcode linker flag smoke tests' \
@@ -336,4 +346,5 @@ help:
 		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>,' \
 		'         LDFLAGS=<target-linker options>, HOST_LDFLAGS=<host-generator options>,' \
 		'         MACEMUS_BREW_FRAMEWORKS=<framework directory>,' \
-		'         MACEMUS_SDL2_LINKAGE=auto|dylib|framework, MACEMUS_SDL2_LIBRARY_DIR=<dir>'
+		'         MACEMUS_SDL2_LINKAGE=auto|dylib|framework, MACEMUS_SDL2_LIBRARY_DIR=<dir>,' \
+		'         MACEMUS_SDL2_TEST_ARCH=arm64|x86_64, SDL2_EXPECT_EXPORTS=<symbols>'
