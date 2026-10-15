@@ -189,7 +189,7 @@ MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-framework SDL2"
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons
 
 all: basilisk sheepshaver
 
@@ -287,6 +287,10 @@ test-sdl2-linkage:
 # -lSDL3 to SDL2 callers unless a separate direct SDL3 API is used.
 MACEMUS_SDL2_TEST_ARCH ?= $(MACEMUS_HOST_ARCH)
 SDL2_EXPECT_EXPORTS ?=
+# Avoid adding SDL extension libraries without source-symbol evidence.
+audit-sdl-addons:
+	@./tests/audit-sdl-addons.sh
+
 check-sdl2-exports:
 	@./tests/check-sdl2-exports.sh "$(MACEMUS_SDL2_SELECTED)" "$(MACEMUS_SDL2_LIBRARY_DIR)" "$(MACEMUS_SDL2_INCLUDE_FLAT)" "$(MACEMUS_SDL2_TEST_ARCH)" "$(SDL2_EXPECT_EXPORTS)"
 
@@ -332,6 +336,7 @@ help:
 		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
 		'  make check-sdl2-exports Verify SDL2 exports, architecture and link' \
+		'  make audit-sdl-addons   Report use of optional SDL2 libraries' \
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
 		'  make linker-info         Audit target/host LDFLAGS routing' \
 		'  make test-linker-flags   Run non-Xcode linker flag smoke tests' \

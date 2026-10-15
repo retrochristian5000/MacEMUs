@@ -6,6 +6,9 @@
 */
 
 #include "SDL.h"
+#if defined(MACEMUS_EXPECT_SDL2) && SDL_MAJOR_VERSION != 2
+#error MacEMUs SDLMain.m must use SDL2 headers for this Xcode build
+#endif
 #if SDL_VERSION_ATLEAST(3, 0, 0)
 #define SDL_MAIN_NEEDED
 #include <SDL_main.h>

@@ -220,6 +220,43 @@ are exported and linkable; it does **not** verify all SDL2 APIs, correct
 runtime library loading, bundled SDL3 dependencies, or native emulator
 startup.
 
+### SDL compatibility dependency audit
+
+The current SDL source modules use **core SDL2** calls rather than
+SDL2_image (`IMG_*`), SDL2_mixer (`Mix_*`), SDL2_ttf (`TTF_*`),
+or SDL2_net (`SDLNet_*`). The core function `SDL_MixAudio` is
+**not** supplied by SDL2_mixer. Adding optional SDL libraries without
+corresponding source calls would not solve missing `_SDL_*` exports.
+
+`sdl2-compat` wraps the SDL2 API with SDL3 at runtime. SDL3 can be
+loaded dynamically by the wrapper, so an `otool -L libSDL2.dylib`
+listing that does not mention SDL3 is **not** proof that SDL3 is
+unnecessary. To check both the build's SDL2 symbols and an actual
+SDL3-backed, headless initialization:
+
+```sh
+make audit-sdl-addons
+make check-sdl2-exports
+MACEMUS_SDL2_RUNTIME_TEST=1 make check-sdl2-exports
+```
+
+The active Basilisk II and SheepShaver Xcode application targets also
+compile with `MACEMUS_EXPECT_SDL2=1`. Their shared `my_sdl.h` and
+`SDLMain.m` reject incompatible SDL1/SDL3 headers in these SDL2
+builds. This guards against accidentally activating legacy SDL1.2
+code because `SDL.h` resolves to a different SDK or framework.
+
+**Interpret missing symbols by family.** `_SDL_*` generally
+indicates the SDL core ABI or library selection, and requires the
+exact symbol name. `_IMG_*`, `_Mix_*`, `_TTF_*` or
+`_SDLNet_*` points to a separately linked extension *only when
+that API is actually called*. `dyld` failures locating SDL3 at
+runtime are a different problem from the linker's `Undefined
+symbols for architecture` errors. The runtime probe checks
+`SDL_Init(0)` only, with no audio or video device requested.
+Successful probes still do not validate the full emulator runtime
+or a redistributable app bundle.
+
 ### CPPFLAGS: preprocessor and host-tool isolation
 
 Use `CPPFLAGS` for preprocessing only (such as `-I`, `-D`, and `-U`).
