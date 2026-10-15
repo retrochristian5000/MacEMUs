@@ -134,6 +134,36 @@ satisfy those existing framework references. SDL2 library-style linking and
 app bundling require a separate Xcode integration change; no filesystem
 symlinks or forced Homebrew links are created here.
 
+### Homebrew framework directory (macOS)
+
+Homebrew has an optional common `Frameworks` directory alongside
+`bin`, `include`, and `lib`. The root Makefile now discovers
+`$(brew --prefix)/Frameworks` and, **only if the directory exists**,
+passes it to both active Xcode projects as `MACEMUS_FRAMEWORK_SEARCH_DIR`.
+They include this in `FRAMEWORK_SEARCH_PATHS` while retaining inherited
+framework locations and the previous `/Library/Frameworks` fallback.
+The search path also works for an explicit alternate directory:
+
+```sh
+make homebrew-info
+make test-homebrew-frameworks
+make basilisk MACEMUS_BREW_FRAMEWORKS=/custom/Frameworks
+make sheepshaver XCODE_ARGS='MACEMUS_FRAMEWORK_SEARCH_DIR=/custom/Frameworks'
+```
+
+**SDL2 distinction:** Homebrew's standard `sdl2-compat` formula
+installs SDL2-compatible headers and a dynamic library built on SDL3;
+it does **not** guarantee an `SDL2.framework` inside Homebrew's
+`Frameworks` directory. In addition, MacEMUs' current Xcode file
+references explicitly point to `/Library/Frameworks/SDL2.framework`
+for *both* linking and copying into the application. Adding an
+`-F` search location does not redirect those absolute file
+references. This change is a **framework search-path improvement**,
+not a replacement for the SDL2 framework linking/embedding phase.
+A separate project-file modification is required to use Homebrew's
+`libSDL2.dylib` reliably, or to support a genuine SDL2.framework at
+another location. No fake framework symlinks are created.
+
 ### CPPFLAGS: preprocessor and host-tool isolation
 
 Use `CPPFLAGS` for preprocessing only (such as `-I`, `-D`, and `-U`).

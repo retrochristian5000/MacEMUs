@@ -83,6 +83,12 @@ ifneq ($(strip $(MACEMUS_BREW_PREFIX)),)
 MACEMUS_BREW_BIN := $(MACEMUS_BREW_PREFIX)/bin
 MACEMUS_BREW_INCLUDE := $(MACEMUS_BREW_PREFIX)/include
 MACEMUS_BREW_LIB := $(MACEMUS_BREW_PREFIX)/lib
+# Homebrew's shared framework directory is separate from include/ and lib/.
+# Feed it to Xcode only when it exists; never assume SDL2.framework lives there.
+MACEMUS_BREW_FRAMEWORKS ?= $(MACEMUS_BREW_PREFIX)/Frameworks
+ifneq ($(wildcard $(MACEMUS_BREW_FRAMEWORKS)/.),)
+MACEMUS_XCODE_BREW_ARGS += MACEMUS_FRAMEWORK_SEARCH_DIR="$(MACEMUS_BREW_FRAMEWORKS)"
+endif
 # SDL2 compatibility headers can be included as <SDL2/SDL.h> or <SDL.h>.
 # Try the Homebrew common prefix first; an unlinked formula is a fallback.
 MACEMUS_SDL2_INCLUDE_PREFIX ?= $(MACEMUS_BREW_PREFIX)
@@ -137,7 +143,7 @@ endif
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions
+.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks
 
 all: basilisk sheepshaver
 
@@ -223,6 +229,10 @@ linker-info:
 test-linker-flags:
 	@./tests/test-linker-flags.sh
 
+# Test Xcode argument routing and the framework directory existence guard.
+test-homebrew-frameworks:
+	@./tests/test-homebrew-frameworks.sh
+
 # The portable Mac clipboard size/range checks are compiled with conversion
 # warnings enabled and treated as errors, independent of the emulator.
 test-type-conversions:
@@ -238,6 +248,12 @@ ifeq ($(MACEMUS_PLATFORM),macos)
 	@printf 'Homebrew mode: %s\nHost architecture: %s\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
 	@printf 'Homebrew command: %s\nHomebrew prefix: %s\n' '$(MACEMUS_BREW)' '$(MACEMUS_BREW_PREFIX)'
 	@printf 'Common bin: %s\nCommon include: %s\nCommon lib: %s\n' '$(MACEMUS_BREW_BIN)' '$(MACEMUS_BREW_INCLUDE)' '$(MACEMUS_BREW_LIB)'
+	@printf 'Common frameworks: %s\n' '$(MACEMUS_BREW_FRAMEWORKS)'
+	@if test -n '$(MACEMUS_BREW_FRAMEWORKS)' && test -d '$(MACEMUS_BREW_FRAMEWORKS)/SDL2.framework'; then \
+		printf '%s\n' 'SDL2.framework in Homebrew frameworks: yes'; \
+	else \
+		printf '%s\n' 'SDL2.framework in Homebrew frameworks: not found'; \
+	fi
 	@printf 'SDL2 include root (<SDL2/SDL.h>): %s\n' '$(MACEMUS_SDL2_INCLUDE_ROOT)'
 	@printf 'SDL2 flat include (<SDL.h>): %s\n' '$(MACEMUS_SDL2_INCLUDE_FLAT)'
 	@printf 'GMP fallback: %s\nMPFR fallback: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)'
@@ -255,6 +271,7 @@ help:
 		'  make sheepshaver         Build SheepShaver only' \
 		'  make clean               Clean both emulator builds' \
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
+		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make cppflags-info       Audit target/host CPPFLAGS routing' \
 		'  make linker-info         Audit target/host LDFLAGS routing' \
 		'  make test-linker-flags   Run non-Xcode linker flag smoke tests' \
@@ -267,4 +284,5 @@ help:
 		'         CONFIGURE_ARGS=<arguments> (only on first Autotools configure)' \
 		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>' \
 		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>,' \
-		'         LDFLAGS=<target-linker options>, HOST_LDFLAGS=<host-generator options>'
+		'         LDFLAGS=<target-linker options>, HOST_LDFLAGS=<host-generator options>,' \
+		'         MACEMUS_BREW_FRAMEWORKS=<framework directory>'
