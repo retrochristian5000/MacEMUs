@@ -111,6 +111,7 @@
 #include "macos_util.h"
 #include "rom_patches.h"
 #include "startup_limits.h"
+#include "startup_rom_config.h"
 #include "user_strings.h"
 #include "vm_alloc.h"
 #include "sigsegv.h"
@@ -304,6 +305,11 @@ static void startup_checkpoint(const char *stage)
     startup_stage = stage;
     startup_report("stage", "begin");
 }
+
+#if SDL_PLATFORM_MACOS
+// Existing Cocoa VMSettingsWindow.nib, available before SDL_Init().
+extern bool ShowSheepShaverSettings(void);
+#endif
 
 // Prototypes
 #if !defined(__APPLE__) || !defined(__x86_64__)
@@ -868,6 +874,21 @@ int main(int argc, char **argv)
 #if SDL_PLATFORM_MACOS
 	startup_checkpoint("macOS working directory");
 	set_current_directory();
+
+	// Standalone configuration works even when SDL initialization fails.
+	// Do not go through Quit(): guest devices and SDL have not started.
+	for (int i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "--settings") == 0 || strcmp(argv[i], "--gui") == 0) {
+			startup_checkpoint("standalone Cocoa configuration");
+			int settings_argc = 1;
+			PrefsInit(NULL, settings_argc, argv);
+			bool opened = ShowSheepShaverSettings();
+			PrefsExit();
+			startup_report(opened ? "info" : "error",
+				opened ? "configuration closed" : "could not display Cocoa settings");
+			return opened ? EXIT_SUCCESS : EXIT_FAILURE;
+		}
+	}
 #endif
 	
 #ifdef USE_SDL
@@ -974,6 +995,19 @@ int main(int argc, char **argv)
 	// Only use nogui preference if not passed as command line argument
 	if (use_gui == -1)
 		use_gui = !PrefsFindBool("nogui");
+
+#if SDL_PLATFORM_MACOS
+	// Offer configuration before allocating host/guest memory when the
+	// selected ROM and the fallback are both missing.
+	if (use_gui && !sheep_startup::rom_candidate_exists(PrefsFindString("rom"))) {
+		startup_checkpoint("Cocoa configuration (no ROM found)");
+		bool opened = ShowSheepShaverSettings();
+		PrefsExit();
+		startup_report(opened ? "info" : "error",
+			opened ? "save settings and relaunch to boot" : "could not display Cocoa settings");
+		return opened ? EXIT_SUCCESS : EXIT_FAILURE;
+	}
+#endif
 
 #if SDL_PLATFORM_MACOS
 #if SDL_VERSION_ATLEAST(2,0,0)

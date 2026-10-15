@@ -110,6 +110,42 @@ before this log opens; use Console or launch the app binary from a shell
 for those. The regression test checks source-level invariants; a real
 macOS launch is necessary to identify the actual failure on that host.
 
+### ROM discovery and early SheepShaver configuration
+
+The native SheepShaver app searches the configured `rom` preference
+(or `ROM` if the preference is empty), then `Mac OS ROM` as fallback.
+For a Finder-opened app, its working directory normally becomes the
+directory **containing** `SheepShaver.app`. A file named `Mac OS ROM`
+beside the app can therefore be found. If a Terminal invocation
+already starts in a directory containing `ROM` or `Mac OS ROM`,
+SheepShaver now preserves that working directory instead.
+
+The Xcode SheepShaver.app already includes `VMSettingsWindow.nib` and
+`VMSettingsController`, but its built-in `PrefsEditor()` was a dummy.
+The new `--settings` (or `--gui`) entry point opens that Cocoa window
+before SDL, guest RAM allocation, or ROM loading. Missing SDL video
+or a missing ROM cannot block the configuration-only entry point.
+
+```sh
+make sheepshaver-settings
+"/Applications/SheepShaver.app/Contents/MacOS/SheepShaver" --settings
+```
+
+Ordinary app launches with no readable ROM candidate automatically
+open the Cocoa settings window (unless `nogui` is enabled). After
+saving or closing settings, relaunch to attempt guest boot. macOS
+preferences normally live in `~/.sheepshaver_prefs`; explicitly
+selected `.sheepvm` directories use their own `prefs` file instead.
+Having a ROM alone does not guarantee a bootable classic Mac OS disk.
+
+```sh
+make test-sheepshaver-configuration
+tail -n 80 "$HOME/Library/Logs/SheepShaver.log"
+```
+
+The portable test covers ROM fallback logic and source wiring; Cocoa
+display and actual ROM/guest boot require a native macOS runtime.
+
 ## Build either emulator or both
 
 From the repository root:

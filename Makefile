@@ -239,7 +239,7 @@ MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
 endif
 endif
 
-.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging
+.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration sheepshaver-settings
 
 all: basilisk sheepshaver
 
@@ -385,6 +385,18 @@ test-sheepshaver-startup:
 test-sheepshaver-app-logging:
 	@./tests/test-sheepshaver-app-logging.sh
 
+test-sheepshaver-configuration:
+	@CXX="$(CXX)" ./tests/test-sheepshaver-configuration.sh
+
+ifeq ($(MACEMUS_PLATFORM),macos)
+sheepshaver-settings: sheepshaver
+	@"$(MACEMUS_SHEEPSHAVER_APP)/Contents/MacOS/SheepShaver" --settings
+else
+sheepshaver-settings:
+	@printf '%s\n' 'SheepShaver Cocoa settings require macOS.' >&2
+	@exit 1
+endif
+
 native-info:
 	@printf 'Native host architecture: %s\nNative CPU target: %s\n' '$(MACEMUS_HOST_ARCH)' '$(MACEMUS_BASILISK_CPU_TARGET)'
 
@@ -450,6 +462,8 @@ help:
 		'  make test-native-xcode   Check native Xcode target selection' \
 		'  make test-sheepshaver-startup  Check ROM and RAM startup limits' \
 		'  make test-sheepshaver-app-logging  Verify failure-stage tracing' \
+		'  make test-sheepshaver-configuration  Test ROM/configuration routing' \
+		'  make sheepshaver-settings  Open Cocoa settings without ROM boot' \
 		'  make native-info         Show host architecture and CPU target' \
 		'  make check-sdl2-exports Verify SDL2 exports, architecture and link' \
 		'  make audit-sdl-addons   Report use of optional SDL2 libraries' \

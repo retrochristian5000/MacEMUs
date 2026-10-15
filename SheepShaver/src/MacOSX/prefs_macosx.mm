@@ -116,11 +116,17 @@ void prefs_init(void)
 {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 #if SDL_VERSION_ATLEAST(2,0,0)
-	for (NSMenuItem *sub_item in [NSApp mainMenu].itemArray[0].submenu.itemArray) {
-		if ([sub_item.title isEqualToString:@"Preferences…"] || [sub_item.title isEqualToString:@"Settings…"]) {
-			sub_item.target = [[SheepShaverMain alloc] init];
-			sub_item.action = @selector(openPreferences:);
-			break;
+	// No menu necessarily exists in the SDL-independent settings path.
+	NSMenu *menu = [NSApp mainMenu];
+	if (menu && [menu numberOfItems] > 0) {
+		NSMenu *appMenu = [[menu itemAtIndex:0] submenu];
+		for (NSMenuItem *sub_item in [appMenu itemArray]) {
+			if ([sub_item.title isEqualToString:@"Preferences…"] ||
+			    [sub_item.title isEqualToString:@"Settings…"]) {
+				sub_item.target = [[SheepShaverMain alloc] init];
+				sub_item.action = @selector(openPreferences:);
+				break;
+			}
 		}
 	}
 #else
@@ -144,4 +150,25 @@ void prefs_init(void)
 
 void prefs_exit(void)
 {
+}
+
+// Load the Cocoa configuration UI without requiring SDL or a guest ROM.
+bool ShowSheepShaverSettings(void)
+{
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	[NSApplication sharedApplication];
+	VMSettingsController *controller = [VMSettingsController sharedInstance];
+	NSWindow *window = [controller window];
+	if (!window) {
+		NSLog(@"SheepShaver: could not load VMSettingsWindow.nib");
+		[pool release];
+		return false;
+	}
+	[controller setupGUI];
+	[window center];
+	[window makeKeyAndOrderFront:nil];
+	[NSApp activateIgnoringOtherApps:YES];
+	[NSApp runModalForWindow:window];
+	[pool release];
+	return true;
 }

@@ -485,13 +485,16 @@ static NSString *makeRelativeIfNecessary(NSString *path)
 
   // quit
 #ifdef USE_SDL_VIDEO
-  SDL_Event event;
+  // Settings can now open before SDL_Init(), including on a missing-ROM run.
+  if (SDL_WasInit(SDL_INIT_VIDEO)) {
+    SDL_Event event;
 #if SDL_VERSION_ATLEAST(3, 0, 0)
-  event.type = SDL_EVENT_QUIT;
+    event.type = SDL_EVENT_QUIT;
 #else
-  event.type = SDL_QUIT;
+    event.type = SDL_QUIT;
 #endif
-  SDL_PushEvent(&event);
+    SDL_PushEvent(&event);
+  }
 #endif
 }
 
