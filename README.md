@@ -70,6 +70,38 @@ existing links/files. This preparation is intentionally not automatic.
 The `cxmon` support tool retains its own build process and is not a third
 emulator target.
 
+### Homebrew discovery (macOS)
+
+The root `make` entry point detects the running host architecture and
+queries Homebrew at build startup. On native Apple Silicon, it checks
+`brew --prefix --installed gmp` and `brew --prefix --installed mpfr` and
+passes their stable per-formula prefixes into the Basilisk II Xcode build.
+Keg-only formulae do not need to be forcibly linked. If Homebrew is not
+installed, the previous Xcode search settings remain usable.
+
+```sh
+make homebrew-info                  # inspect Homebrew and detected formulae
+make basilisk                      # auto-discover libraries (if installed)
+make all                           # both emulators
+make basilisk MACEMUS_HOMEBREW=off  # disable discovery
+make basilisk MACEMUS_HOMEBREW=required # error if Homebrew is missing
+make basilisk MACEMUS_BREW=/custom/bin/brew
+```
+
+`XCODE_ARGS` comes last, so explicit overrides such as
+`XCODE_ARGS='MACEMUS_GMP_PREFIX=/custom/gmp MACEMUS_MPFR_PREFIX=/custom/mpfr'`
+take priority. Direct Xcode builds retain their existing fallback prefixes.
+The shell architecture and formula binary architectures must match; an Intel
+Homebrew installation under Rosetta is **not** automatically used for arm64
+linking.
+
+**SDL2 limitation:** Both current Xcode projects still refer to
+`/Library/Frameworks/SDL2.framework`. `make homebrew-info` reports a
+Homebrew SDL2 formula if installed, but the Homebrew `libSDL2.dylib` cannot
+satisfy those existing framework references. SDL2 library-style linking and
+app bundling require a separate Xcode integration change; no filesystem
+symlinks or forced Homebrew links are created here.
+
 ## Existing emulator build instructions
 
 #### BasiliskII

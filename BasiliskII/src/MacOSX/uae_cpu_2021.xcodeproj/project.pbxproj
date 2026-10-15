@@ -371,6 +371,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(MACEMUS_ARM64_PREFIX)/include",
+					"$(MACEMUS_GMP_PREFIX)/include",
+					"$(MACEMUS_MPFR_PREFIX)/include",
 					../CrossPlatform,
 					../include,
 					../MacOSX,
@@ -379,6 +381,8 @@
 				);
 				OTHER_CFLAGS = "-fwrapv";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
+				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
+				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 							};
 			name = Debug;
@@ -392,6 +396,8 @@
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(MACEMUS_ARM64_PREFIX)/include",
+					"$(MACEMUS_GMP_PREFIX)/include",
+					"$(MACEMUS_MPFR_PREFIX)/include",
 					../CrossPlatform,
 					../include,
 					../MacOSX,
@@ -400,6 +406,8 @@
 				);
 				OTHER_CFLAGS = "-fwrapv";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
+				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
+				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 							};
 			name = Release;
