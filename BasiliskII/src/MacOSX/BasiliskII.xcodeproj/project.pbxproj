@@ -1054,6 +1054,8 @@
 					../slirp,
 				);
 				"HEADER_SEARCH_PATHS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(MACEMUS_X86_64_PREFIX)/include",
 					/Library/Frameworks/SDL2.framework/Headers,
 					../MacOSX,
 					../include,
@@ -1063,6 +1065,7 @@
 				);
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
+				MACEMUS_X86_64_PREFIX = /usr/local;
 				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
 				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
 				INSTALL_PATH = "$(HOME)/Applications";
@@ -1075,7 +1078,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
 					"$(inherited)",
-					/usr/local/lib,
+					"$(MACEMUS_X86_64_PREFIX)/lib",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				ONLY_ACTIVE_ARCH = NO;
@@ -1155,6 +1158,8 @@
 					../slirp,
 				);
 				"HEADER_SEARCH_PATHS[arch=x86_64]" = (
+					"$(inherited)",
+					"$(MACEMUS_X86_64_PREFIX)/include",
 					/Library/Frameworks/SDL2.framework/Headers,
 					../MacOSX,
 					../include,
@@ -1164,6 +1169,7 @@
 				);
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
+				MACEMUS_X86_64_PREFIX = /usr/local;
 				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
 				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
 				INSTALL_PATH = "$(HOME)/Applications";
@@ -1176,7 +1182,7 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = (
 					"$(inherited)",
-					/usr/local/lib,
+					"$(MACEMUS_X86_64_PREFIX)/lib",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 12.0;
 				OTHER_CFLAGS = "-fwrapv";

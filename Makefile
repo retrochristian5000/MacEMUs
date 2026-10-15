@@ -21,9 +21,10 @@ BUILD_ROOT ?= $(CURDIR)/build
 XCODE_ARGS ?=
 CONFIGURE_ARGS ?=
 
-# Homebrew is optional. Detect it at Make startup, not in individual Xcode phases.
-# Prefer the native prefix when the shell is running on Apple Silicon; retain a
-# command-line override for custom installations and Rosetta configurations.
+# Homebrew is optional. Prefer its common bin/include/lib prefix rather than
+# querying every installed formula. Unlinked (including keg-only) GMP/MPFR
+# installations are resolved only when shared headers or libraries are absent.
+# Never mix native arm64 dependencies with an Intel/Rosetta build.
 MACEMUS_HOMEBREW ?= auto
 MACEMUS_HOST_ARCH := $(shell uname -m)
 ifneq ($(filter $(MACEMUS_HOMEBREW),auto off required),$(MACEMUS_HOMEBREW))
@@ -31,6 +32,7 @@ $(error MACEMUS_HOMEBREW must be auto, off, or required)
 endif
 
 MACEMUS_XCODE_BREW_ARGS :=
+MACEMUS_XCODE_ENV :=
 ifeq ($(MACEMUS_PLATFORM),macos)
 ifneq ($(MACEMUS_HOMEBREW),off)
 MACEMUS_BREW ?= $(shell \
@@ -41,32 +43,54 @@ MACEMUS_BREW ?= $(shell \
 	elif command -v brew >/dev/null 2>&1; then \
 		command -v brew; \
 	fi)
+# Freeze discovery once to avoid repeated brew invocations during expansion.
+MACEMUS_BREW := $(MACEMUS_BREW)
 ifneq ($(strip $(MACEMUS_BREW)),)
 MACEMUS_BREW_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix 2>/dev/null)
-MACEMUS_GMP_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed gmp 2>/dev/null)
-MACEMUS_MPFR_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed mpfr 2>/dev/null)
-MACEMUS_SDL2_PREFIX ?= $(shell "$(MACEMUS_BREW)" --prefix --installed sdl2-compat 2>/dev/null || "$(MACEMUS_BREW)" --prefix --installed sdl2 2>/dev/null)
 endif
-endif
-ifeq ($(MACEMUS_HOMEBREW),required)
-ifeq ($(strip $(MACEMUS_BREW_PREFIX)),)
-$(error Homebrew requested but not found; set MACEMUS_BREW or use MACEMUS_HOMEBREW=auto)
-endif
-endif
-
-# Only inject auto-detected dependency paths into matching native ARM builds.
-# On Intel/Rosetta hosts, do not feed Intel-only libraries to the ARM linker.
-ifneq ($(MACEMUS_HOMEBREW),off)
-ifeq ($(MACEMUS_HOST_ARCH),arm64)
+MACEMUS_BREW_PREFIX := $(MACEMUS_BREW_PREFIX)
+# SDL2 discovery is diagnostic only; the active Xcode projects still embed a framework.
+MACEMUS_SDL2_PREFIX ?= $(shell \
+	if test -n "$(MACEMUS_BREW)" && test -n "$(MACEMUS_BREW_PREFIX)"; then \
+		"$(MACEMUS_BREW)" --prefix --installed sdl2-compat 2>/dev/null || \
+		"$(MACEMUS_BREW)" --prefix --installed sdl2 2>/dev/null || :; \
+	fi)
 ifneq ($(strip $(MACEMUS_BREW_PREFIX)),)
-MACEMUS_XCODE_BREW_ARGS += MACEMUS_ARM64_PREFIX="$(MACEMUS_BREW_PREFIX)"
+MACEMUS_BREW_BIN := $(MACEMUS_BREW_PREFIX)/bin
+MACEMUS_BREW_INCLUDE := $(MACEMUS_BREW_PREFIX)/include
+MACEMUS_BREW_LIB := $(MACEMUS_BREW_PREFIX)/lib
+# Project-scoped executable lookup; do not modify the user's shell startup.
+MACEMUS_XCODE_ENV := PATH="$(MACEMUS_BREW_BIN):$$PATH"
+ifneq ($(strip $(MACEMUS_BREW)),)
+MACEMUS_GMP_PREFIX ?= $(shell \
+	if test ! -f "$(MACEMUS_BREW_INCLUDE)/gmp.h" || \
+	   { test ! -f "$(MACEMUS_BREW_LIB)/libgmp.dylib" && test ! -f "$(MACEMUS_BREW_LIB)/libgmp.a"; }; then \
+		"$(MACEMUS_BREW)" --prefix --installed gmp 2>/dev/null || :; \
+	fi)
+MACEMUS_MPFR_PREFIX ?= $(shell \
+	if test ! -f "$(MACEMUS_BREW_INCLUDE)/mpfr.h" || \
+	   { test ! -f "$(MACEMUS_BREW_LIB)/libmpfr.dylib" && test ! -f "$(MACEMUS_BREW_LIB)/libmpfr.a"; }; then \
+		"$(MACEMUS_BREW)" --prefix --installed mpfr 2>/dev/null || :; \
+	fi)
 endif
+MACEMUS_GMP_PREFIX := $(MACEMUS_GMP_PREFIX)
+MACEMUS_MPFR_PREFIX := $(MACEMUS_MPFR_PREFIX)
+ifeq ($(MACEMUS_HOST_ARCH),arm64)
+MACEMUS_XCODE_BREW_ARGS += MACEMUS_ARM64_PREFIX="$(MACEMUS_BREW_PREFIX)"
 ifneq ($(strip $(MACEMUS_GMP_PREFIX)),)
 MACEMUS_XCODE_BREW_ARGS += MACEMUS_GMP_PREFIX="$(MACEMUS_GMP_PREFIX)"
 endif
 ifneq ($(strip $(MACEMUS_MPFR_PREFIX)),)
 MACEMUS_XCODE_BREW_ARGS += MACEMUS_MPFR_PREFIX="$(MACEMUS_MPFR_PREFIX)"
 endif
+else ifeq ($(MACEMUS_HOST_ARCH),x86_64)
+MACEMUS_XCODE_BREW_ARGS += MACEMUS_X86_64_PREFIX="$(MACEMUS_BREW_PREFIX)"
+endif
+endif
+endif
+ifeq ($(MACEMUS_HOMEBREW),required)
+ifeq ($(strip $(MACEMUS_BREW_PREFIX)),)
+$(error Homebrew requested but not found; set MACEMUS_BREW or use MACEMUS_HOMEBREW=auto)
 endif
 endif
 endif
@@ -77,25 +101,25 @@ all: basilisk sheepshaver
 
 ifeq ($(MACEMUS_PLATFORM),macos)
 basilisk:
-	$(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
 		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) build
 
 sheepshaver:
-	$(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
 		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) build
 
 clean-basilisk:
-	$(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
 		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) clean
 
 clean-sheepshaver:
-	$(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
 		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(XCODE_ARGS) clean
@@ -150,8 +174,10 @@ homebrew-info:
 ifeq ($(MACEMUS_PLATFORM),macos)
 	@printf 'Homebrew mode: %s\nHost architecture: %s\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
 	@printf 'Homebrew command: %s\nHomebrew prefix: %s\n' '$(MACEMUS_BREW)' '$(MACEMUS_BREW_PREFIX)'
-	@printf 'GMP prefix: %s\nMPFR prefix: %s\nSDL2 (sdl2-compat) prefix: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)' '$(MACEMUS_SDL2_PREFIX)'
-	@printf '%s\n' 'Note: Xcode still requires SDL2.framework; Homebrew libSDL2.dylib is not a framework.'
+	@printf 'Common bin: %s\nCommon include: %s\nCommon lib: %s\n' '$(MACEMUS_BREW_BIN)' '$(MACEMUS_BREW_INCLUDE)' '$(MACEMUS_BREW_LIB)'
+	@printf 'GMP fallback: %s\nMPFR fallback: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)'
+	@printf 'SDL2 formula: %s\n' '$(MACEMUS_SDL2_PREFIX)'
+	@printf '%s\n' 'Note: SDL2.framework remains a separate Xcode dependency.'
 else
 	@printf '%s\n' 'Homebrew discovery is enabled for macOS Xcode builds only.'
 endif

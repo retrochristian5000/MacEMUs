@@ -29,13 +29,13 @@ The deployment target can be overridden explicitly for an older installed
 Xcode with `XCODE_ARGS='MACOSX_DEPLOYMENT_TARGET=11.0'`, provided that
 version of Xcode supports the chosen target.
 
-For Apple Silicon, Basilisk II's arm64 CPU uses GMP and MPFR development
-libraries. The Xcode arm64 header/library search paths default to the native
-Homebrew prefix `/opt/homebrew`; x86_64 link search paths remain at
-`/usr/local/lib`. If the arm64 libraries are installed elsewhere, pass
-`XCODE_ARGS='MACEMUS_ARM64_PREFIX=/path/to/prefix'`. Verify that GMP,
-MPFR, and SDL2 binaries contain the architecture(s) you intend to ship;
-setting a search path cannot convert Intel-only libraries to arm64.
+For Apple Silicon, Basilisk II's arm64 CPU uses GMP and MPFR. Xcode
+searches the selected common Homebrew prefix's `include` and `lib`
+directories first, then the individual formula locations if necessary.
+On Intel, the common library path defaults to `/usr/local/lib`.
+An alternate prefix can be selected using `MACEMUS_BREW_PREFIX` or
+`MACEMUS_ARM64_PREFIX`/`MACEMUS_X86_64_PREFIX` in `XCODE_ARGS`.
+Always verify that the library binaries contain the required architecture.
 
 The Xcode CPU-generator helpers run on the *build host* (arm64 on a native
 Apple Silicon shell, or x86_64 on an Intel shell). Do not propagate a global
@@ -54,7 +54,7 @@ directories. For example:
 
 ```sh
 make basilisk CONFIGURATION=Debug
-make all XCODE_ARGS='MACEMUS_ARM64_PREFIX=/opt/homebrew'
+make all                        # common Homebrew prefix auto-detected
 ```
 
 `BUILD_ROOT` changes the macOS output root. On Unix and MinGW, each emulator
@@ -72,12 +72,20 @@ emulator target.
 
 ### Homebrew discovery (macOS)
 
-The root `make` entry point detects the running host architecture and
-queries Homebrew at build startup. On native Apple Silicon, it checks
-`brew --prefix --installed gmp` and `brew --prefix --installed mpfr` and
-passes their stable per-formula prefixes into the Basilisk II Xcode build.
-Keg-only formulae do not need to be forcibly linked. If Homebrew is not
-installed, the previous Xcode search settings remain usable.
+At startup, `make` discovers the Homebrew installation **once** using
+`brew --prefix` and uses its common `bin`, `include`, and `lib`
+directories:
+
+- `bin` is added to `PATH` for Xcode build commands only.
+- `include` and `lib` are passed to Basilisk II's Xcode
+  architecture-specific header and library searches.
+- GMP/MPFR formula prefixes are queried only if their header or library
+  is absent from the shared directories. No `brew link --force`.
+
+The default shared prefix is usually `/opt/homebrew` on Apple Silicon
+and `/usr/local` on Intel. `make homebrew-info` shows the common paths
+and any formula-specific fallbacks. Without Homebrew, the earlier Xcode
+fallback paths remain usable.
 
 ```sh
 make homebrew-info                  # inspect Homebrew and detected formulae
@@ -86,11 +94,12 @@ make all                           # both emulators
 make basilisk MACEMUS_HOMEBREW=off  # disable discovery
 make basilisk MACEMUS_HOMEBREW=required # error if Homebrew is missing
 make basilisk MACEMUS_BREW=/custom/bin/brew
+make basilisk MACEMUS_BREW_PREFIX=/custom/prefix
 ```
 
-`XCODE_ARGS` comes last, so explicit overrides such as
-`XCODE_ARGS='MACEMUS_GMP_PREFIX=/custom/gmp MACEMUS_MPFR_PREFIX=/custom/mpfr'`
-take priority. Direct Xcode builds retain their existing fallback prefixes.
+`XCODE_ARGS` comes last, so an explicit per-library override such as
+`XCODE_ARGS='MACEMUS_MPFR_PREFIX=/custom/mpfr'` takes priority.
+Direct Xcode builds retain their project-defined fallback prefixes.
 The shell architecture and formula binary architectures must match; an Intel
 Homebrew installation under Rosetta is **not** automatically used for arm64
 linking.
