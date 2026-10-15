@@ -104,6 +104,29 @@ The shell architecture and formula binary architectures must match; an Intel
 Homebrew installation under Rosetta is **not** automatically used for arm64
 linking.
 
+**SDL2 header selection:** Homebrew's `sdl2-compat` runs the
+SDL2-compatible API on SDL3 internally. Source built against that layer
+still uses SDL2 declarations, not SDL3 headers.
+
+```text
+<prefix>/include/SDL2/SDL.h
+-I<prefix>/include         # for #include <SDL2/SDL.h>
+-I<prefix>/include/SDL2    # for #include <SDL.h>
+```
+
+The root Makefile checks the common prefix for the SDL2 header, then
+passes both include directories to the active Xcode projects. If that
+header is absent, an installed formula prefix can serve as fallback.
+Use `MACEMUS_SDL2_INCLUDE_PREFIX=/alternate/prefix` to choose another
+common prefix or `MACEMUS_SDL2_PREFIX` for a formula-specific fallback.
+If neither header location is present, the original SDL2.framework
+header setting is retained.
+
+MacEMUs already contains native SDL3-specific code, but its current
+Xcode targets compile SDL2-specific components. Its `my_sdl.h` uses
+`<SDL2/SDL.h>` for `USE_SDL2`, `<SDL3/SDL.h>` for `USE_SDL3`,
+and `<SDL.h>` otherwise. These are distinct compile modes.
+
 **SDL2 limitation:** Both current Xcode projects still refer to
 `/Library/Frameworks/SDL2.framework`. `make homebrew-info` reports a
 Homebrew SDL2 formula if installed, but the Homebrew `libSDL2.dylib` cannot

@@ -1177,6 +1177,8 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
+				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
+				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -1188,6 +1190,8 @@
 					_REENTRANT,
 				);
 				HEADER_SEARCH_PATHS = (
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					./config/,
 					../Unix,
@@ -1215,6 +1219,8 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
+				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
+				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_OPTIMIZATION_LEVEL = 3;
@@ -1226,6 +1232,8 @@
 					_REENTRANT,
 				);
 				HEADER_SEARCH_PATHS = (
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					./config/,
 					../Unix,
@@ -1278,6 +1286,8 @@
 				CODE_SIGN_ENTITLEMENTS = SheepShaver.entitlements;
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
+				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
+				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -1301,6 +1311,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					./config/,
 					../Unix,
@@ -1351,6 +1363,8 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = NO;
 				FRAMEWORK_SEARCH_PATHS = /Library/Frameworks;
+				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
+				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				GCC_CW_ASM_SYNTAX = NO;
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -1374,6 +1388,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					./config/,
 					../Unix,

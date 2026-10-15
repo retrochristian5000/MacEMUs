@@ -1046,6 +1046,8 @@
 					"$(MACEMUS_ARM64_PREFIX)/include",
 					"$(MACEMUS_GMP_PREFIX)/include",
 					"$(MACEMUS_MPFR_PREFIX)/include",
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					../MacOSX,
 					../include,
@@ -1056,6 +1058,8 @@
 				"HEADER_SEARCH_PATHS[arch=x86_64]" = (
 					"$(inherited)",
 					"$(MACEMUS_X86_64_PREFIX)/include",
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					../MacOSX,
 					../include,
@@ -1066,6 +1070,8 @@
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
 				MACEMUS_X86_64_PREFIX = /usr/local;
+				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
+				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
 				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
 				INSTALL_PATH = "$(HOME)/Applications";
@@ -1150,6 +1156,8 @@
 					"$(MACEMUS_ARM64_PREFIX)/include",
 					"$(MACEMUS_GMP_PREFIX)/include",
 					"$(MACEMUS_MPFR_PREFIX)/include",
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					../MacOSX,
 					../include,
@@ -1160,6 +1168,8 @@
 				"HEADER_SEARCH_PATHS[arch=x86_64]" = (
 					"$(inherited)",
 					"$(MACEMUS_X86_64_PREFIX)/include",
+					"$(MACEMUS_SDL2_HEADER_ROOT)",
+					"$(MACEMUS_SDL2_HEADER_FLAT)",
 					/Library/Frameworks/SDL2.framework/Headers,
 					../MacOSX,
 					../include,
@@ -1170,6 +1180,8 @@
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				MACEMUS_ARM64_PREFIX = /opt/homebrew;
 				MACEMUS_X86_64_PREFIX = /usr/local;
+				MACEMUS_SDL2_HEADER_ROOT = /Library/Frameworks/SDL2.framework/Headers;
+				MACEMUS_SDL2_HEADER_FLAT = /Library/Frameworks/SDL2.framework/Headers;
 				MACEMUS_GMP_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/gmp";
 				MACEMUS_MPFR_PREFIX = "$(MACEMUS_ARM64_PREFIX)/opt/mpfr";
 				INSTALL_PATH = "$(HOME)/Applications";

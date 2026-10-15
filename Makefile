@@ -59,6 +59,24 @@ ifneq ($(strip $(MACEMUS_BREW_PREFIX)),)
 MACEMUS_BREW_BIN := $(MACEMUS_BREW_PREFIX)/bin
 MACEMUS_BREW_INCLUDE := $(MACEMUS_BREW_PREFIX)/include
 MACEMUS_BREW_LIB := $(MACEMUS_BREW_PREFIX)/lib
+# SDL2 compatibility headers can be included as <SDL2/SDL.h> or <SDL.h>.
+# Try the Homebrew common prefix first; an unlinked formula is a fallback.
+MACEMUS_SDL2_INCLUDE_PREFIX ?= $(MACEMUS_BREW_PREFIX)
+ifneq ($(wildcard $(MACEMUS_SDL2_INCLUDE_PREFIX)/include/SDL2/SDL.h),)
+MACEMUS_SDL2_INCLUDE_ROOT := $(MACEMUS_SDL2_INCLUDE_PREFIX)/include
+MACEMUS_SDL2_INCLUDE_FLAT := $(MACEMUS_SDL2_INCLUDE_PREFIX)/include/SDL2
+else
+ifneq ($(strip $(MACEMUS_SDL2_PREFIX)),)
+ifneq ($(wildcard $(MACEMUS_SDL2_PREFIX)/include/SDL2/SDL.h),)
+MACEMUS_SDL2_INCLUDE_ROOT := $(MACEMUS_SDL2_PREFIX)/include
+MACEMUS_SDL2_INCLUDE_FLAT := $(MACEMUS_SDL2_PREFIX)/include/SDL2
+endif
+endif
+endif
+ifneq ($(strip $(MACEMUS_SDL2_INCLUDE_ROOT)),)
+MACEMUS_XCODE_BREW_ARGS += MACEMUS_SDL2_HEADER_ROOT="$(MACEMUS_SDL2_INCLUDE_ROOT)"
+MACEMUS_XCODE_BREW_ARGS += MACEMUS_SDL2_HEADER_FLAT="$(MACEMUS_SDL2_INCLUDE_FLAT)"
+endif
 # Project-scoped executable lookup; do not modify the user's shell startup.
 MACEMUS_XCODE_ENV := PATH="$(MACEMUS_BREW_BIN):$$PATH"
 ifneq ($(strip $(MACEMUS_BREW)),)
@@ -175,6 +193,8 @@ ifeq ($(MACEMUS_PLATFORM),macos)
 	@printf 'Homebrew mode: %s\nHost architecture: %s\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
 	@printf 'Homebrew command: %s\nHomebrew prefix: %s\n' '$(MACEMUS_BREW)' '$(MACEMUS_BREW_PREFIX)'
 	@printf 'Common bin: %s\nCommon include: %s\nCommon lib: %s\n' '$(MACEMUS_BREW_BIN)' '$(MACEMUS_BREW_INCLUDE)' '$(MACEMUS_BREW_LIB)'
+	@printf 'SDL2 include root (<SDL2/SDL.h>): %s\n' '$(MACEMUS_SDL2_INCLUDE_ROOT)'
+	@printf 'SDL2 flat include (<SDL.h>): %s\n' '$(MACEMUS_SDL2_INCLUDE_FLAT)'
 	@printf 'GMP fallback: %s\nMPFR fallback: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)'
 	@printf 'SDL2 formula: %s\n' '$(MACEMUS_SDL2_PREFIX)'
 	@printf '%s\n' 'Note: SDL2.framework remains a separate Xcode dependency.'
