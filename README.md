@@ -1,3 +1,51 @@
+# MacEMUs
+
+MacEMUs collects Basilisk II and SheepShaver in one source tree, with shared
+`cxmon` sources. The root Makefile coordinates the two emulators without
+replacing their existing platform build systems.
+
+## Build either emulator or both
+
+From the repository root:
+
+```sh
+make help
+make basilisk          # Basilisk II only
+make sheepshaver       # SheepShaver only
+make                   # both (same as make all)
+make clean-basilisk    # clean only Basilisk II
+make clean-sheepshaver # clean only SheepShaver
+make clean             # clean both
+```
+
+The default build backend is selected by host: Xcode on macOS, the existing
+Autotools/Make files in `src/Unix` on Unix-like hosts, and `src/Windows` on
+MinGW/MSYS. To select explicitly, set `MACEMUS_PLATFORM=macos`, `unix`, or
+`mingw`. Dependencies and host restrictions below still apply.
+
+On macOS, builds go to separate `build/BasiliskII` and `build/SheepShaver`
+directories. For example:
+
+```sh
+make basilisk CONFIGURATION=Debug
+make all XCODE_ARGS='ARCHS=arm64'
+```
+
+`BUILD_ROOT` changes the macOS output root. On Unix and MinGW, each emulator
+uses its own existing build directory; `CONFIGURE_ARGS` is passed to
+`autogen.sh` **only when no configured Makefile exists**. Subsequent calls
+reuse the existing configuration rather than overwriting it.
+
+SheepShaver's older MinGW build may need source links set up first. If the
+build reports that they are missing, review the existing `SheepShaver/Makefile`
+`links` recipe before running `make -C SheepShaver links`; it can rewrite
+existing links/files. This preparation is intentionally not automatic.
+
+The `cxmon` support tool retains its own build process and is not a third
+emulator target.
+
+## Existing emulator build instructions
+
 #### BasiliskII
 ```
 macOS     x86_64 JIT / arm64 non-JIT
