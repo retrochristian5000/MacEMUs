@@ -4,6 +4,44 @@ MacEMUs collects Basilisk II and SheepShaver in one source tree, with shared
 `cxmon` sources. The root Makefile coordinates the two emulators without
 replacing their existing platform build systems.
 
+## Installing with PREFIX and DESTDIR
+
+Root `make install` builds and installs both emulators. `PREFIX` controls
+the final installation root (default `/usr/local`); `DESTDIR` is an
+optional absolute packaging/staging directory (default empty). The staging
+root is never passed into compilation, Xcode, or Homebrew detection.
+
+On macOS, app bundles go into `$(DESTDIR)$(PREFIX)/Applications`.
+For example `make install PREFIX=/usr/local DESTDIR=/tmp/pkg` stages
+`/tmp/pkg/usr/local/Applications/BasiliskII.app` and `SheepShaver.app`.
+Use `PREFIX=/` for the normal macOS `/Applications` directory.
+The script copies bundles with `ditto` when available; it rejects
+relative prefixes, dot-segments, missing bundles, and existing
+destinations rather than silently merging obsolete resources.
+
+```sh
+make install-info
+make test-install
+make install PREFIX=/usr/local DESTDIR=/tmp/pkg
+make install-basilisk PREFIX=/
+make install-sheepshaver PREFIX=/usr/local
+```
+
+The default source bundles are `BUILD_ROOT/BasiliskII/CONFIGURATION/`
+and `BUILD_ROOT/SheepShaver/CONFIGURATION/`; override
+`MACEMUS_BASILISK_APP` or `MACEMUS_SHEEPSHAVER_APP` if Xcode
+uses a custom output directory. Both sources are checked before a
+combined install, although an I/O failure during copying can leave
+an incomplete destination.
+
+On Unix, install delegates to the already-configured component Makefiles,
+forwarding the lowercase Autoconf `prefix` and the staging `DESTDIR`.
+If changing a configured prefix affects built-in data paths, reconfigure
+and rebuild with the desired prefix. Root MinGW install is unsupported.
+
+Staging is not standalone app distribution: Homebrew SDL2/SDL3 and other
+external dylibs are not embedded or code-signed by this command.
+
 ## Build either emulator or both
 
 From the repository root:

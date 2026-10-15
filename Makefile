@@ -21,6 +21,12 @@ BUILD_ROOT ?= $(CURDIR)/build
 XCODE_ARGS ?=
 CONFIGURE_ARGS ?=
 
+# PREFIX is the installed layout; DESTDIR is the packaging/staging root.
+PREFIX ?= /usr/local
+DESTDIR ?=
+MACEMUS_BASILISK_APP ?= $(BUILD_ROOT)/BasiliskII/$(CONFIGURATION)/BasiliskII.app
+MACEMUS_SHEEPSHAVER_APP ?= $(BUILD_ROOT)/SheepShaver/$(CONFIGURATION)/SheepShaver.app
+
 # CPPFLAGS are compile-time preprocessing options (-I/-D/-U), not link flags.
 # Pass them to Xcode's C and C++ compiler settings, preserving native headers.
 # Host generator tools have an independent HOST_CPPFLAGS namespace.
@@ -225,11 +231,29 @@ MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
 endif
 endif
 
-.PHONY: all basilisk sheepshaver clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info
+.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info
 
 all: basilisk sheepshaver
 
+install-info:
+	@printf 'PREFIX=%s\nDESTDIR=%s\n' '$(PREFIX)' '$(DESTDIR)'
+	@printf 'macOS app destination: %s%s/Applications\n' '$(DESTDIR)' '$(PREFIX)'
+	@printf 'Built apps: %s | %s\n' '$(MACEMUS_BASILISK_APP)' '$(MACEMUS_SHEEPSHAVER_APP)'
+
+test-install:
+	@./tests/test-install.sh
+
 ifeq ($(MACEMUS_PLATFORM),macos)
+# Bundle copy is separate from the Xcode build and its INSTALL_PATH.
+install: all
+	@./scripts/install-macos-app.sh "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_BASILISK_APP)" "$(MACEMUS_SHEEPSHAVER_APP)"
+
+install-basilisk: basilisk
+	@./scripts/install-macos-app.sh "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_BASILISK_APP)"
+
+install-sheepshaver: sheepshaver
+	@./scripts/install-macos-app.sh "$(DESTDIR)" "$(PREFIX)" "$(MACEMUS_SHEEPSHAVER_APP)"
+
 # Build native CPU archive first, sharing configuration and output directories.
 basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project $(MACEMUS_BASILISK_CPU_PROJECT) -target $(MACEMUS_BASILISK_CPU_TARGET) \
@@ -303,6 +327,23 @@ clean-sheepshaver:
 	@if test -f SheepShaver/src/$(BUILD_SUBDIR)/Makefile; then \
 		$(MAKE) -C SheepShaver/src/$(BUILD_SUBDIR) clean; \
 	fi
+endif
+
+# Unix installers already support Autoconf prefix + DESTDIR. Windows does not.
+ifneq ($(MACEMUS_PLATFORM),macos)
+ifeq ($(MACEMUS_PLATFORM),mingw)
+install install-basilisk install-sheepshaver:
+	@printf '%s\n' 'Root install is unsupported for MinGW; use Windows packaging.' >&2
+	@exit 1
+else
+install: all
+	+$(MAKE) -C BasiliskII/src/Unix prefix="$(PREFIX)" DESTDIR="$(DESTDIR)" install
+	+$(MAKE) -C SheepShaver/src/Unix prefix="$(PREFIX)" DESTDIR="$(DESTDIR)" install
+install-basilisk: basilisk
+	+$(MAKE) -C BasiliskII/src/Unix prefix="$(PREFIX)" DESTDIR="$(DESTDIR)" install
+install-sheepshaver: sheepshaver
+	+$(MAKE) -C SheepShaver/src/Unix prefix="$(PREFIX)" DESTDIR="$(DESTDIR)" install
+endif
 endif
 
 clean: clean-basilisk clean-sheepshaver
@@ -383,6 +424,11 @@ help:
 		'  make basilisk            Build Basilisk II only' \
 		'  make sheepshaver         Build SheepShaver only' \
 		'  make clean               Clean both emulator builds' \
+		'  make install             Install both emulators' \
+		'  make install-basilisk    Install Basilisk II' \
+		'  make install-sheepshaver Install SheepShaver' \
+		'  make install-info        Show destination and bundle paths' \
+		'  make test-install        Verify staging behavior' \
 		'  make homebrew-info       Show discovered Homebrew dependencies' \
 		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
@@ -399,6 +445,8 @@ help:
 		'' \
 		'Options: MACEMUS_PLATFORM=macos|unix|mingw (auto-detected), CONFIGURATION=Release,' \
 		'         BUILD_ROOT=<path>, XCODE_ARGS=<arguments>,' \
+		'         PREFIX=/usr/local, DESTDIR=<absolute staging root>,' \
+		'         MACEMUS_BASILISK_APP=<path>, MACEMUS_SHEEPSHAVER_APP=<path>,' \
 		'         CONFIGURE_ARGS=<arguments> (only on first Autotools configure)' \
 		'         MACEMUS_HOMEBREW=auto|off|required, MACEMUS_BREW=<brew path>' \
 		'         CPPFLAGS=<preprocessor options>, HOST_CPPFLAGS=<host-generator options>,' \
