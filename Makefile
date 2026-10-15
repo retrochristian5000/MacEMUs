@@ -56,6 +56,7 @@ endif
 
 # Only inject auto-detected dependency paths into matching native ARM builds.
 # On Intel/Rosetta hosts, do not feed Intel-only libraries to the ARM linker.
+ifneq ($(MACEMUS_HOMEBREW),off)
 ifeq ($(MACEMUS_HOST_ARCH),arm64)
 ifneq ($(strip $(MACEMUS_BREW_PREFIX)),)
 MACEMUS_XCODE_BREW_ARGS += MACEMUS_ARM64_PREFIX="$(MACEMUS_BREW_PREFIX)"
@@ -65,6 +66,7 @@ MACEMUS_XCODE_BREW_ARGS += MACEMUS_GMP_PREFIX="$(MACEMUS_GMP_PREFIX)"
 endif
 ifneq ($(strip $(MACEMUS_MPFR_PREFIX)),)
 MACEMUS_XCODE_BREW_ARGS += MACEMUS_MPFR_PREFIX="$(MACEMUS_MPFR_PREFIX)"
+endif
 endif
 endif
 endif
@@ -146,12 +148,12 @@ clean: clean-basilisk clean-sheepshaver
 # Diagnose Homebrew without changing installed packages or shell configuration.
 homebrew-info:
 ifeq ($(MACEMUS_PLATFORM),macos)
-	@printf 'Homebrew mode: %s\\nHost architecture: %s\\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
-	@printf 'Homebrew command: %s\\nHomebrew prefix: %s\\n' '$(MACEMUS_BREW)' '$(MACEMUS_BREW_PREFIX)'
-	@printf 'GMP prefix: %s\\nMPFR prefix: %s\\nSDL2 prefix: %s\\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)' '$(MACEMUS_SDL2_PREFIX)'
-	@printf '%s\\n' 'Note: Xcode still requires SDL2.framework; Homebrew libSDL2.dylib is not a framework.'
+	@printf 'Homebrew mode: %s\nHost architecture: %s\n' '$(MACEMUS_HOMEBREW)' '$(MACEMUS_HOST_ARCH)'
+	@printf 'Homebrew command: %s\nHomebrew prefix: %s\n' '$(MACEMUS_BREW)' '$(MACEMUS_BREW_PREFIX)'
+	@printf 'GMP prefix: %s\nMPFR prefix: %s\nSDL2 prefix: %s\n' '$(MACEMUS_GMP_PREFIX)' '$(MACEMUS_MPFR_PREFIX)' '$(MACEMUS_SDL2_PREFIX)'
+	@printf '%s\n' 'Note: Xcode still requires SDL2.framework; Homebrew libSDL2.dylib is not a framework.'
 else
-	@printf '%s\\n' 'Homebrew discovery is enabled for macOS Xcode builds only.'
+	@printf '%s\n' 'Homebrew discovery is enabled for macOS Xcode builds only.'
 endif
 
 help:
