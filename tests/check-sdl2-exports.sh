@@ -36,7 +36,9 @@ xcrun nm -arch "$arch" -gjU "$lib" >"$tmp/exports" ||
 # Extra names can be copied verbatim from "Undefined symbols ... _SDL_Foo".
 # A leading underscore is tolerated; invalid names must fail explicitly.
 missing=0
-for original in SDL_Init SDL_Quit SDL_GetError SDL_OpenAudio SDL_MixAudio SDL_CreateRenderer $extras; do
+# SDL_UnlockMutex is exported by core SDL2 / sdl2-compat, not SDL_mixer.
+# Verify the entire mutex family that MacEMUs uses.
+for original in SDL_Init SDL_Quit SDL_GetError SDL_OpenAudio SDL_MixAudio SDL_CreateRenderer SDL_CreateMutex SDL_LockMutex SDL_UnlockMutex SDL_DestroyMutex $extras; do
     symbol=${original#_}
     case "$symbol" in
         SDL_*) ;;
@@ -52,7 +54,7 @@ for original in SDL_Init SDL_Quit SDL_GetError SDL_OpenAudio SDL_MixAudio SDL_Cr
         missing=1
     fi
 done
-[ "$missing" -eq 0 ] || die 'one or more SDL2 exports are missing; check library version and header/ABI'
+[ "$missing" -eq 0 ] || die 'one or more SDL2 exports are missing; the selected dylib is incomplete or not the expected SDL2 ABI'
 
 printf '%s\n' 'Dylib dependency list (SDL3 may be opened dynamically):'
 xcrun otool -L "$lib" || die 'cannot inspect linked dylibs'
@@ -74,7 +76,8 @@ if command -v brew >/dev/null 2>&1; then
     fi
 fi
 
-# Resolve SDL symbols using the same -lSDL2 convention as the Xcode apps.
+# Resolve SDL symbols against the exact binary chosen by the Xcode apps.
+# A bare -lSDL2 can be intercepted by an unrelated earlier -L search path.
 # SDL_MAIN_HANDLED avoids SDL_main macro rewriting and is irrelevant to the
 # emulators own entrypoints. Compile/link this probe; do not execute it.
 cat >"$tmp/probe.c" <<'EOF'
@@ -91,12 +94,18 @@ int main(void)
     SDL_OpenAudio(&spec, 0);
     SDL_MixAudio(dst, src, 1, SDL_MIX_MAXVOLUME);
     SDL_Renderer *renderer = SDL_CreateRenderer(0, -1, 0);
+    SDL_mutex *mutex = SDL_CreateMutex();
+    if (mutex) {
+        SDL_LockMutex(mutex);
+        SDL_UnlockMutex(mutex);
+        SDL_DestroyMutex(mutex);
+    }
     SDL_Quit();
     return renderer == 0 && SDL_GetError() == 0 && dst[0] != 0;
 }
 EOF
 xcrun --sdk macosx clang -arch "$arch" -std=c11 -Wall -Wextra \
-    -I"$headerdir" "$tmp/probe.c" -L"$libdir" -lSDL2 -o "$tmp/probe" ||
+    -I"$headerdir" "$tmp/probe.c" "$lib" -o "$tmp/probe" ||
     die 'SDL2 C link probe failed; check Xcode header/library alignment and undefined symbols'
 printf '%s\n' 'SDL2 export and linker probe: PASS'
 
@@ -119,7 +128,7 @@ int main(void)
 }
 EOF
     xcrun --sdk macosx clang -arch "$arch" -std=c11 -Wall -Wextra \
-        -I"$headerdir" "$tmp/runtime.c" -L"$libdir" -lSDL2 \
+        -I"$headerdir" "$tmp/runtime.c" "$lib" \
         -o "$tmp/runtime" || die 'failed compiling SDL2 runtime probe'
     "$tmp/runtime" || die 'SDL2 runtime initialization failed (inspect SDL3 loading)'
     printf '%s\n' 'SDL2/SDL3 runtime initialization: PASS'

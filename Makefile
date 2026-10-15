@@ -169,6 +169,12 @@ endif
 endif
 endif
 endif
+# Explicitly requested dylib locations must contain a real binary.
+ifneq ($(strip $(MACEMUS_SDL2_LIBRARY_DIR)),)
+ifeq ($(wildcard $(MACEMUS_SDL2_LIBRARY_DIR)/libSDL2.dylib),)
+$(error SDL2 shared library not found at $(MACEMUS_SDL2_LIBRARY_DIR)/libSDL2.dylib)
+endif
+endif
 ifeq ($(MACEMUS_SDL2_LINKAGE),dylib)
 ifeq ($(wildcard $(MACEMUS_SDL2_LIBRARY_DIR)/libSDL2.dylib),)
 $(error SDL2 shared library not found; install sdl2-compat or set MACEMUS_SDL2_LIBRARY_DIR)
@@ -182,7 +188,9 @@ else
 MACEMUS_SDL2_SELECTED := framework
 endif
 ifeq ($(MACEMUS_SDL2_SELECTED),dylib)
-MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-lSDL2"
+# The absolute dylib path pins the actual compatibility implementation.
+# Relying on -lSDL2 can select a different SDL2 binary from earlier -L paths.
+MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="$(MACEMUS_SDL2_LIBRARY_DIR)/libSDL2.dylib"
 MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LIBRARY_DIR="$(MACEMUS_SDL2_LIBRARY_DIR)"
 else
 MACEMUS_XCODE_SDL_ARGS += MACEMUS_SDL2_LINK_FLAGS="-framework SDL2"

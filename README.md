@@ -133,8 +133,10 @@ or unconditional framework embedding. They use
 `MACEMUS_SDL2_LINK_FLAGS` in architecture-specific `OTHER_LDFLAGS` instead.
 The root Makefile automatically prefers Homebrew's common
 `lib/libSDL2.dylib`, then the formula's `lib/libSDL2.dylib`, setting
-`MACEMUS_SDL2_LIBRARY_DIR` and `-lSDL2`. Otherwise it selects
-`-framework SDL2`, which requires a real installed SDL2 framework.
+`MACEMUS_SDL2_LIBRARY_DIR` and passing **the selected dylib's absolute
+path** to Xcode. This avoids accidentally linking a different SDL2
+implementation found earlier in `LIBRARY_SEARCH_PATHS`. Otherwise it
+selects `-framework SDL2`, which requires a real installed framework.
 
 ```sh
 make homebrew-info
@@ -146,8 +148,8 @@ make basilisk MACEMUS_SDL2_LINKAGE=dylib MACEMUS_SDL2_LIBRARY_DIR=/custom/lib
 
 Forced `dylib` mode fails immediately if `libSDL2.dylib` is absent.
 Direct `xcodebuild` defaults to `-framework SDL2`; to use a dylib
-directly, specify `MACEMUS_SDL2_LINK_FLAGS=-lSDL2` and
-`MACEMUS_SDL2_LIBRARY_DIR=/path/to/lib`. Framework mode preserves
+directly, specify `MACEMUS_SDL2_LINK_FLAGS=/path/to/lib/libSDL2.dylib`
+and `MACEMUS_SDL2_LIBRARY_DIR=/path/to/lib`. Framework mode preserves
 `FRAMEWORK_SEARCH_PATHS` for real SDL2.framework installations.
 
 **Runtime limitation:** Neither route embeds relocatable SDL libraries.
@@ -177,7 +179,7 @@ make sheepshaver XCODE_ARGS='MACEMUS_FRAMEWORK_SEARCH_DIR=/custom/Frameworks'
 installs SDL2-compatible headers and a dynamic library built on SDL3;
 it does **not** guarantee an `SDL2.framework` inside Homebrew's
 `Frameworks` directory. The Xcode projects previously had absolute SDL2.framework references;
-these have now been replaced by selectable `-lSDL2` or
+these have now been replaced by a selected dylib path or
 `-framework SDL2` linker options. The framework search path is retained
 for genuine installed frameworks, but no fake framework symlinks are created.
 
@@ -203,8 +205,11 @@ dylib's linked dependencies using `otool -L`, then runs a small
 SDL2 APIs from MacEMUs and never launches SDL or the emulator.
 `SDL2_EXPECT_EXPORTS` accepts additional names from a real undefined
 symbols report. The built-in probe includes `SDL_Init`, `SDL_Quit`,
-`SDL_GetError`, `SDL_OpenAudio`, `SDL_MixAudio`, and
-`SDL_CreateRenderer`.
+`SDL_GetError`, `SDL_OpenAudio`, `SDL_MixAudio`,
+`SDL_CreateRenderer`, and the mutex group:
+`SDL_CreateMutex`, `SDL_LockMutex`, `SDL_UnlockMutex`, and
+`SDL_DestroyMutex`. The executable uses the selected SDL2 dylib's
+**exact path**, not an ambiguous `-lSDL2` lookup.
 
 This diagnostic currently requires a selected `libSDL2.dylib` and a
 matching `SDL.h` under Homebrew or the chosen alternate prefix. It
@@ -224,7 +229,7 @@ startup.
 
 The current SDL source modules use **core SDL2** calls rather than
 SDL2_image (`IMG_*`), SDL2_mixer (`Mix_*`), SDL2_ttf (`TTF_*`),
-or SDL2_net (`SDLNet_*`). The core function `SDL_MixAudio` is
+or SDL2_net (`SDLNet_*`). The core functions `SDL_MixAudio` and `SDL_UnlockMutex` are
 **not** supplied by SDL2_mixer. Adding optional SDL libraries without
 corresponding source calls would not solve missing `_SDL_*` exports.
 
@@ -256,6 +261,31 @@ symbols for architecture` errors. The runtime probe checks
 `SDL_Init(0)` only, with no audio or video device requested.
 Successful probes still do not validate the full emulator runtime
 or a redistributable app bundle.
+
+### Specific undefined symbol: `_SDL_UnlockMutex`
+
+Upstream `sdl2-compat` implements `SDL_UnlockMutex` as a core SDL2
+entry point that forwards to SDL3 and returns an SDL2-compatible `int`.
+It is not an SDL2_mixer, SDL2_net, SDL2_image, or SDL2_ttf export.
+SDL3's native `SDL_UnlockMutex` has a different (`void`) return type,
+so linking SDL3 directly is not a safe substitute for an SDL2 binary.
+
+When the linker reports `Undefined symbols for architecture arm64:
+"_SDL_UnlockMutex"`, test the actual selected library:
+
+```sh
+make check-sdl2-exports MACEMUS_SDL2_TEST_ARCH=arm64 \
+  SDL2_EXPECT_EXPORTS='SDL_UnlockMutex SDL_LockMutex'
+```
+
+If this check fails at `nm`, inspect the specific SDL2 dylib's exports,
+install state, and architecture. If `nm` and the standalone link probe
+pass but Xcode fails, inspect Xcode's full linker invocation and ensure
+the matching SDL2 dylib is on that line (not merely a `-L` search path).
+The root Makefile now passes the selected dylib's absolute path to avoid
+accidental selection of another SDL2 build. The Xcode projects' existing
+custom `MACEMUS_SDL2_LINK_FLAGS` setting accepts this exact path without
+new project-file references.
 
 ### CPPFLAGS: preprocessor and host-tool isolation
 
