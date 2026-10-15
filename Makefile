@@ -231,7 +231,7 @@ MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
 endif
 endif
 
-.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info
+.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup
 
 all: basilisk sheepshaver
 
@@ -371,6 +371,9 @@ test-sdl2-linkage:
 test-native-xcode:
 	@./tests/test-native-xcode.sh
 
+test-sheepshaver-startup:
+	@CXX="$(CXX)" ./tests/test-sheepshaver-startup.sh
+
 native-info:
 	@printf 'Native host architecture: %s\nNative CPU target: %s\n' '$(MACEMUS_HOST_ARCH)' '$(MACEMUS_BASILISK_CPU_TARGET)'
 
@@ -433,6 +436,7 @@ help:
 		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
 		'  make test-native-xcode   Check native Xcode target selection' \
+		'  make test-sheepshaver-startup  Check ROM and RAM startup limits' \
 		'  make native-info         Show host architecture and CPU target' \
 		'  make check-sdl2-exports Verify SDL2 exports, architecture and link' \
 		'  make audit-sdl-addons   Report use of optional SDL2 libraries' \

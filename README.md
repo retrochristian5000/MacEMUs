@@ -42,6 +42,36 @@ and rebuild with the desired prefix. Root MinGW install is unsupported.
 Staging is not standalone app distribution: Homebrew SDL2/SDL3 and other
 external dylibs are not embedded or code-signed by this command.
 
+## SheepShaver startup checks
+
+On macOS, startup can stop at the host loader (architecture or dylibs), SDL
+audio/video initialization, VM preferences, memory mapping, ROM file reading,
+ROM patches, video driver initialization, or the guest boot drive.
+ROM patching recognizes TNT, Alchemy, Zanzibar, Gazelle, Gossamer and NewWorld
+ROM signatures; it does not imply that every ROM boots every classic Mac OS.
+SheepShaver's established guest OS compatibility ends at Mac OS 9.0.4.
+The parser's reference to a Mac OS 9.2.x *ROM image* is about a ROM
+container, not support for Mac OS 9.2 as a booted guest.
+
+Startup RAM preferences <=1000 are interpreted in MiB; values above that
+are treated as bytes. A minimum 16 MiB is preserved. Negative RAM
+preferences now fail rather than silently turning into huge unsigned
+allocations, and fixed-addressing modes reject RAM overlapping the ROM.
+
+The ROM loader now loops through interrupted/short reads, maintains a
+terminating byte for text-based compressed-ROM metadata parsing, and
+releases its buffer on failure. Compressed ROM offset and length fields
+are validated against actual bytes read before decompression. This
+does not prove all malformed ROM payloads can be decoded safely.
+
+```sh
+make test-sheepshaver-startup
+make sheepshaver
+```
+
+The standalone boundary test cannot launch the emulator or validate
+any particular ROM, boot image, SDL device or macOS dylib.
+
 ## Build either emulator or both
 
 From the repository root:

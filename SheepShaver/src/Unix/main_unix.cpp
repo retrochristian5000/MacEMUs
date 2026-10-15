@@ -109,6 +109,7 @@
 #include "sys.h"
 #include "macos_util.h"
 #include "rom_patches.h"
+#include "startup_limits.h"
 #include "user_strings.h"
 #include "vm_alloc.h"
 #include "sigsegv.h"
@@ -608,36 +609,44 @@ static void get_system_info(void)
 
 static bool load_mac_rom(void)
 {
-	uint32 rom_size, actual;
-	uint8 *rom_tmp;
-	const char *rom_path = PrefsFindString("rom");
-	int rom_fd = open(rom_path && *rom_path ? rom_path : ROM_FILE_NAME, O_RDONLY);
-	if (rom_fd < 0) {
-		rom_fd = open(ROM_FILE_NAME2, O_RDONLY);
-		if (rom_fd < 0) {
-			ErrorAlert(GetString(STR_NO_ROM_FILE_ERR));
-			return false;
-		}
-	}
-	printf("%s", GetString(STR_READING_ROM_FILE));
-	rom_size = lseek(rom_fd, 0, SEEK_END);
-	lseek(rom_fd, 0, SEEK_SET);
-	rom_tmp = new uint8[ROM_SIZE];
-	actual = read(rom_fd, (void *)rom_tmp, ROM_SIZE);
-	close(rom_fd);
-	
-	// Decode Mac ROM
-	if (!DecodeROM(rom_tmp, actual)) {
-		if (rom_size != 4*1024*1024) {
-			ErrorAlert(GetString(STR_ROM_SIZE_ERR));
-			return false;
-		} else {
-			ErrorAlert(GetString(STR_ROM_FILE_READ_ERR));
-			return false;
-		}
-	}
-	delete[] rom_tmp;
-	return true;
+    const char *rom_path = PrefsFindString("rom");
+    int rom_fd = open(rom_path && *rom_path ? rom_path : ROM_FILE_NAME, O_RDONLY);
+    if (rom_fd < 0) {
+        rom_fd = open(ROM_FILE_NAME2, O_RDONLY);
+        if (rom_fd < 0) {
+            ErrorAlert(GetString(STR_NO_ROM_FILE_ERR));
+            return false;
+        }
+    }
+    printf("%s", GetString(STR_READING_ROM_FILE));
+    const off_t rom_size = lseek(rom_fd, 0, SEEK_END);
+    if (rom_size < 0 || lseek(rom_fd, 0, SEEK_SET) < 0) {
+        close(rom_fd);
+        ErrorAlert(GetString(STR_ROM_FILE_READ_ERR));
+        return false;
+    }
+    // CHRP parsing uses strstr, so terminate the bytes that were read.
+    uint8 *rom_tmp = new uint8[ROM_SIZE + 1];
+    size_t actual = 0;
+    bool read_error = false;
+    while (actual < ROM_SIZE) {
+        ssize_t n = read(rom_fd, rom_tmp + actual, ROM_SIZE - actual);
+        if (n < 0 && errno == EINTR) continue;
+        if (n < 0) { read_error = true; break; }
+        if (n == 0) break;
+        actual += static_cast<size_t>(n);
+    }
+    close(rom_fd);
+    rom_tmp[actual] = 0;
+    const bool decoded = !read_error && actual != 0 &&
+        DecodeROM(rom_tmp, static_cast<uint32>(actual));
+    delete[] rom_tmp;
+    if (!decoded) {
+        ErrorAlert(GetString(read_error || rom_size == ROM_SIZE ?
+            STR_ROM_FILE_READ_ERR : STR_ROM_SIZE_ERR));
+        return false;
+    }
+    return true;
 }
 
 static bool install_signal_handlers(void)
@@ -1043,15 +1052,23 @@ int main(int argc, char **argv)
 	D(bug("DR Cache at %p\n", DRCacheAddr));
 #endif
 	
-	// Create area for Mac RAM
-	RAMSize = PrefsFindInt32("ramsize");
-	if (RAMSize <= 1000) {
-		RAMSize *= 1024 * 1024;
+	// Reject negative RAM preferences before narrowing to unsigned bytes.
+	bool ram_too_small = false;
+	uint32_t ram_bytes = 0;
+	if (!sheep_startup::normalize_ram(PrefsFindInt32("ramsize"),
+	    ram_bytes, ram_too_small)) {
+		ErrorAlert("Invalid SheepShaver RAM size preference.");
+		goto quit;
 	}
-	if (RAMSize < 16 * 1024 * 1024) {
-		WarningAlert(GetString(STR_SMALL_RAM_WARN));
-		RAMSize = 16 * 1024 * 1024;
+	RAMSize = ram_bytes;
+	if (ram_too_small) WarningAlert(GetString(STR_SMALL_RAM_WARN));
+#if !REAL_ADDRESSING
+	// Fixed RAM and ROM windows must not overlap.
+	if (RAMSize > ROM_BASE - RAM_BASE) {
+		ErrorAlert("SheepShaver RAM overlaps the ROM address window.");
+		goto quit;
 	}
+#endif
 	memory_mapped_from_zero = false;
 	ram_rom_areas_contiguous = false;
 #if REAL_ADDRESSING && HAVE_LINKER_SCRIPT

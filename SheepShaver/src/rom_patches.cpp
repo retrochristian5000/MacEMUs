@@ -28,6 +28,7 @@
 
 #include "sysdeps.h"
 #include "rom_patches.h"
+#include "startup_limits.h"
 #include "main.h"
 #include "prefs.h"
 #include "cpu_emulation.h"
@@ -158,21 +159,23 @@ bool DecodeROM(uint8 *data, uint32 size)
 		bool decode_info_ok = false;
 		
 		char *s = strstr((char *)data, "constant lzss-offset");
-		if (s != NULL) {
+		if (s != NULL && s >= (char *)data + 7) {
 			// Probably a plain LZSS compressed ROM image
 			if (sscanf(s - 7, "%06x", &image_offset) == 1) {
 				s = strstr((char *)data, "constant lzss-size");
-				if (s != NULL && (sscanf(s - 7, "%06x", &image_size) == 1))
+				if (s != NULL && s >= (char *)data + 7 &&
+				    sscanf(s - 7, "%06x", &image_size) == 1)
 					decode_info_ok = true;
 			}
 		}
 		else {
 			// Probably a MacOS 9.2.x ROM image
 			s = strstr((char *)data, "constant parcels-offset");
-			if (s != NULL) {
+			if (s != NULL && s >= (char *)data + 7) {
 				if (sscanf(s - 7, "%06x", &image_offset) == 1) {
 					s = strstr((char *)data, "constant parcels-size");
-					if (s != NULL && (sscanf(s - 7, "%06x", &image_size) == 1))
+					if (s != NULL && s >= (char *)data + 7 &&
+				    sscanf(s - 7, "%06x", &image_size) == 1)
 						decode_info_ok = true;
 				}
 			}
@@ -181,7 +184,10 @@ bool DecodeROM(uint8 *data, uint32 size)
 		// No valid information to decode the ROM found?
 		if (!decode_info_ok)
 			return false;
-		
+		// Refuse malformed offsets before dereferencing the image payload.
+		if (!sheep_startup::rom_payload_fits(size, image_offset, image_size))
+			return false;
+
 		// Check signature, this could be a parcels-based ROM image
 		uint32 rom_signature = ntohl(*(uint32 *)(data + image_offset));
 		if (rom_signature == FOURCC('p','r','c','l')) {
