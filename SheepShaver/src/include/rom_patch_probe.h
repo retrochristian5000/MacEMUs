@@ -32,6 +32,54 @@ inline uint32_t probe_be32(const uint8_t *p) {
            (uint32_t(p[2]) << 8) | uint32_t(p[3]);
 }
 
+// Snapshot the exact PowerPC words affected by a possible relocated patch
+// and independently look for the neighboring PVR initialization signature.
+// Read-only by design: matching the two sr_init words is not enough evidence
+// to overwrite the next two unknown instructions.
+struct SRInitContext {
+    bool valid;
+    size_t offset;
+    uint32_t before[4];
+    uint32_t overwrite[4];
+    uint32_t after[4];
+    unsigned pvr_matches;
+    size_t pvr_first;
+    unsigned pvr_guarded_matches;
+    size_t pvr_guarded_first;
+};
+
+inline SRInitContext probe_sr_init_context(const uint8_t *rom,
+                                           size_t bytes, size_t offset)
+{
+    SRInitContext c = {};
+    if (!rom || offset < kNanokernelStart + 16 ||
+        offset > kNanokernelEnd - 32 ||
+        bytes < kNanokernelEnd || (offset & 3))
+        return c;
+    c.valid = true;
+    c.offset = offset;
+    for (unsigned i = 0; i < 4; ++i) {
+        c.before[i] = probe_be32(rom + offset - 16 + 4 * i);
+        c.overwrite[i] = probe_be32(rom + offset + 4 * i);
+        c.after[i] = probe_be32(rom + offset + 16 + 4 * i);
+    }
+
+    // Legacy PatchROM looks for mfspr r12,PVR (0x7d9f42a6), then
+    // expects cmpwi r12,1 (0x2c0c0001) six instructions afterward.
+    for (size_t off = kNanokernelStart; off + 28 <= kNanokernelEnd;
+         off += 4) {
+        if (probe_be32(rom + off) != 0x7d9f42a6u)
+            continue;
+        ++c.pvr_matches;
+        if (!c.pvr_first) c.pvr_first = off;
+        if (probe_be32(rom + off + 24) == 0x2c0c0001u) {
+            ++c.pvr_guarded_matches;
+            if (!c.pvr_guarded_first) c.pvr_guarded_first = off;
+        }
+    }
+    return c;
+}
+
 inline SRInitProbe probe_sr_init(const uint8_t *rom, size_t bytes)
 {
     SRInitProbe probe = {};
