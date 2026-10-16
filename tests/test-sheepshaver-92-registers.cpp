@@ -38,6 +38,43 @@ int main() {
     assert(r.mfmsr(v)&&v==live_msr);
     r.reset();
 
+    // mtmsr with L=0 replaces the 32-bit MSR in supervisor state.
+    const uint32_t full_msr = ppc32_mmu::MSR_IR |
+        ppc32_mmu::MSR_DR | ppc32_mmu::MSR_EE | ppc32_mmu::MSR_RI;
+    assert(r.mtmsr(full_msr, false));
+    assert(r.msr()==full_msr);
+    v=0;
+    assert(r.mfmsr(v)&&v==full_msr);
+
+    // L=1 changes EE and RI only; other bits survive either operation.
+    const uint32_t preserved = ppc32_mmu::MSR_IR | ppc32_mmu::MSR_DR |
+        ppc32_mmu::MSR_FP;
+    r.set_msr(preserved | ppc32_mmu::MSR_EE);
+    assert(r.mtmsr(ppc32_mmu::MSR_RI, true));
+    assert(r.msr()==(preserved | ppc32_mmu::MSR_RI));
+    assert(r.mtmsr(ppc32_mmu::MSR_EE, true));
+    assert(r.msr()==(preserved | ppc32_mmu::MSR_EE));
+
+    // Once PR is set, mtmsr cannot escape problem state by itself.
+    const uint32_t problem_msr = full_msr | ppc32_mmu::MSR_PR;
+    r.set_msr(0);
+    assert(r.mtmsr(problem_msr, false));
+    assert(!r.mtmsr(0, false));
+    assert(!r.mtmsr(0, true));
+    assert(r.msr()==problem_msr);
+
+    // rfi restores supervisor mode and the next mtmsr is visible to mfmsr.
+    r.set_msr(0);
+    assert(r.write_spr(ppc32_registers::SRR0,0x1000u));
+    assert(r.write_spr(ppc32_registers::SRR1,full_msr));
+    resume_pc=0;
+    assert(r.rfi(resume_pc)&&resume_pc==0x1000u);
+    assert(r.mtmsr(ppc32_mmu::MSR_EE|ppc32_mmu::MSR_RI, true));
+    const uint32_t after_mtmsr = full_msr & ~(ppc32_mmu::MSR_EE |
+        ppc32_mmu::MSR_RI);
+    assert(r.mfmsr(v)&&v==(after_mtmsr|ppc32_mmu::MSR_EE|ppc32_mmu::MSR_RI));
+    r.reset();
+
     assert(r.read_spr(287,v)&&v==0x000c0000u);
     assert(!r.write_spr(287,9u));
     v=33; assert(!r.read_spr(1008,v)&&v==33);
