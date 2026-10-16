@@ -14,7 +14,7 @@
 
 #define CHECK(condition) do { \
     if (!(condition)) { \
-        fprintf(stderr, "%s:%d: failed: %s\\n", __FILE__, __LINE__, #condition); \
+        fprintf(stderr, "%s:%d: failed: %s\n", __FILE__, __LINE__, #condition); \
         return 1; \
     } \
 } while (0)
