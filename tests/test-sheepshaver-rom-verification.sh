@@ -9,9 +9,14 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
     tests/test-sheepshaver-rom-verification.cpp -o "$tmp/test"
 "$CXX" -std=c++11 -O2 -Wall -Wextra -Werror \
     tools/sheepshaver-rom-info.cpp -o "$tmp/inspect"
-"$tmp/test" "$tmp/valid.rom"
+"$tmp/test" "$tmp/valid.rom" "$tmp/valid-chrp.rom"
 "$tmp/inspect" "$tmp/valid.rom" > "$tmp/info"
 grep -F "Identity: NewWorld" "$tmp/info" >/dev/null
+grep -F "Nanokernel sr_init signature: MISSING" "$tmp/info" >/dev/null
+"$tmp/inspect" "$tmp/valid-chrp.rom" > "$tmp/chrp-info"
+grep -F "Container: CHRP compressed" "$tmp/chrp-info" >/dev/null
+grep -F "CHRP boot icon bitmap: tag at outer file" "$tmp/chrp-info" >/dev/null
+grep -F "Nanokernel sr_init signature: MISSING" "$tmp/chrp-info" >/dev/null
 # Reject a same-sized but identity-free image.
 dd if=/dev/zero of="$tmp/bad.rom" bs=1048576 count=4 2>/dev/null
 if "$tmp/inspect" "$tmp/bad.rom" >"$tmp/info" 2>&1; then
