@@ -9,7 +9,12 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
     tests/test-sheepshaver-rom-verification.cpp -o "$tmp/test"
 "$CXX" -std=c++11 -O2 -Wall -Wextra -Werror \
     tools/sheepshaver-rom-info.cpp -o "$tmp/inspect"
-"$tmp/test" "$tmp/valid.rom" "$tmp/valid-chrp.rom"
+"$tmp/test" "$tmp/valid.rom" "$tmp/valid-chrp.rom" "$tmp/relocated.rom"
+"$tmp/inspect" "$tmp/relocated.rom" > "$tmp/relocated-info"
+grep -F "first +0x3106f8" "$tmp/relocated-info" >/dev/null
+grep -F "Candidate PPC code at decoded-ROM +0x3106f8" "$tmp/relocated-info" >/dev/null
+grep -F "4 words SheepShaver would overwrite: 354afffc 7d86502e 12345678 87654321" "$tmp/relocated-info" >/dev/null
+grep -F "PVR opcode hits=1, matching companion cmpwi=1" "$tmp/relocated-info" >/dev/null
 "$tmp/inspect" "$tmp/valid.rom" > "$tmp/info"
 grep -F "Identity: NewWorld" "$tmp/info" >/dev/null
 grep -F "Nanokernel sr_init signature: MISSING" "$tmp/info" >/dev/null
