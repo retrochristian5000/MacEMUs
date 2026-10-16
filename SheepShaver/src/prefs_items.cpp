@@ -55,6 +55,7 @@ prefs_desc common_prefs_items[] = {
 	{"noclipconversion", TYPE_BOOLEAN, false, "don't convert clipboard contents"},
 	{"ignoresegv", TYPE_BOOLEAN, false, "ignore illegal memory accesses"},
 	{"ignoreillegal", TYPE_BOOLEAN, false, "ignore illegal instructions"},
+	{"ppc32supervisor", TYPE_BOOLEAN, false, "experimental PPC32 supervisor register execution (not full MMU boot support)"},
 	{"jit", TYPE_BOOLEAN, false,        "enable JIT compiler"},
 	{"jit68k", TYPE_BOOLEAN, false,     "enable 68k DR emulator"},
 	{"keyboardtype", TYPE_INT32, false, "hardware keyboard type"},
@@ -98,6 +99,7 @@ void AddPrefsDefaults(void)
 	PrefsAddBool("noclipconversion", false);
 	PrefsAddBool("ignoresegv", true);
 	PrefsAddBool("ignoreillegal", true);
+	PrefsAddBool("ppc32supervisor", false);
 
 #if USE_JIT
 	// JIT compiler specific options
