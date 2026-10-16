@@ -765,6 +765,11 @@ const powerpc_cpu::instr_info_t powerpc_cpu::powerpc_ii_table[] = {
 	  PPC_I(MTFSFI),
 	  X_form, 63, 134, CFLOW_NORMAL
 	},
+	{ "mtmsr",
+	  EXECUTE_0(mtmsr),
+	  PPC_I(MTMSR),
+	  X_form, 31, 146, CFLOW_JUMP // MSR write is execution synchronizing
+	},
 	{ "mtspr",
 	  EXECUTE_1(mtspr, operand_SPR),
 	  PPC_I(MTSPR),
