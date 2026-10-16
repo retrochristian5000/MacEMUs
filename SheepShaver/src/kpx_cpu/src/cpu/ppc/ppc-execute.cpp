@@ -113,7 +113,9 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 		abort(); // Never pretend the CPU returned from an exception.
 	}
 
+#ifdef __APPLE__
 	const uint32 old_msr = ppc32_regs_->msr();
+#endif
 	uint32 resume_pc;
 	if (!ppc32_regs_->rfi(resume_pc)) {
 		boot_debug_exception("privileged rfi", pc(), opcode);
@@ -1225,7 +1227,9 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
     }
 
     const uint32 src = operand_RS::get(this, opcode);
+#ifdef __APPLE__
     const uint32 old_msr = ppc32_regs_->msr();
+#endif
     const bool limited = (opcode & 0x00010000u) != 0;
     if (!ppc32_regs_->mtmsr(src, limited)) {
         boot_debug_exception("privileged mtmsr", pc(), opcode);
