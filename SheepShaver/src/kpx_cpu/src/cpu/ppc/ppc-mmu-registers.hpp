@@ -70,7 +70,29 @@ public:
     }
     void tlbie(uint32_t ea) { mmu_.tlbie(ea); }
     void tlbia() { mmu_.tlbia(); }
-    // DSI only; proper ISI/RFI/other exception semantics require CPU wiring.
+
+    // 32-bit OEA: only MSR bits 0, 5-9, and 16-31 survive an
+    // exception in SRR1. The other positions may hold exception data.
+    // In particular, MSR[POW] must not be restored by rfi.
+    enum { RFI_MSR_MASK = 0x87c0ffffu };
+
+    // Return from interrupt in supervisor mode. No explicit operands:
+    // SRR0 supplies the next PC and SRR1 supplies the restored MSR.
+    // A false return signals a privileged-instruction exception to the
+    // CPU layer; neither the PC nor MSR is modified on failure.
+    // The CPU caller must end its basic block, clear any reservation,
+    // and synchronize instruction fetching/translation after success.
+    bool rfi(uint32_t &next_pc) {
+        if (mmu_.msr() & ppc32_mmu::MSR_PR)
+            return false;
+        const uint32_t resume_pc = srr0_ & ~uint32_t(3);
+        const uint32_t resume_msr = srr1_ & uint32_t(RFI_MSR_MASK);
+        mmu_.set_msr(resume_msr);
+        next_pc = resume_pc;
+        return true;
+    }
+
+    // DSI only; ISI/other exception entries require CPU wiring.
     bool take_dsi(uint32_t pc, uint32_t ea, const ppc32_xlate_result &fault,
                   bool store, uint32_t &vector) {
         if (fault.ok || !fault.fault) return false;
