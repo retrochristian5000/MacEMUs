@@ -196,6 +196,7 @@ static NSWindow *boot_debug_window = nil;
 static NSTextView *boot_debug_text = nil;
 static NSButton *boot_debug_quit_button = nil;
 static BOOL boot_debug_tripped = NO;
+static BOOL boot_debug_quit_requested = NO;
 
 @interface SheepShaverBootDebugActions : NSObject <NSWindowDelegate>
 - (void)copyTrace:(id)sender;
@@ -212,8 +213,10 @@ static BOOL boot_debug_tripped = NO;
 }
 - (void)quitAfterFault:(id)sender
 {
-    if (boot_debug_tripped)
+    if (boot_debug_tripped) {
+        boot_debug_quit_requested = YES;
         [NSApp stopModalWithCode:NSModalResponseStop];
+    }
 }
 - (BOOL)windowShouldClose:(id)sender
 {
@@ -426,6 +429,7 @@ extern "C" int SheepShaverBootDebuggerTrip(const char *reason,
     }
 
     boot_debug_tripped = YES;
+    boot_debug_quit_requested = NO;
     [boot_debug_window setTitle:@"SheepShaver Boot Debugger — FAULT TRIPPED"];
     [boot_debug_quit_button setHidden:NO];
     [boot_debug_window makeKeyAndOrderFront:nil];
@@ -436,6 +440,15 @@ extern "C" int SheepShaverBootDebuggerTrip(const char *reason,
     [NSApp runModalForWindow:boot_debug_window];
     [boot_debug_window setTitle:@"SheepShaver Boot Debugger"];
     boot_debug_tripped = NO;
+    const BOOL explicit_quit = boot_debug_quit_requested;
     [pool release];
-    return 1;
+    if (explicit_quit) {
+        // No guest execution resumes and no spurious SIGABRT crash report
+        // is created when the user deliberately closes the failed session.
+        fflush(NULL);
+        exit(EXIT_FAILURE);
+    }
+    // Modal was interrupted unexpectedly. The caller still takes its
+    // existing fatal path instead of returning to guest instructions.
+    return 0;
 }
