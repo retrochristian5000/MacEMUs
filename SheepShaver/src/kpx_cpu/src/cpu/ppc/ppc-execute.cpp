@@ -1173,7 +1173,11 @@ void powerpc_cpu::execute_mffs(uint32 opcode)
 
 void powerpc_cpu::execute_mfmsr(uint32 opcode)
 {
+#ifdef SHEEPSHAVER
+	operand_RD::set(this, opcode, ppc32_regs_ ? ppc32_regs_->msr() : 0xf072);
+#else
 	operand_RD::set(this, opcode, 0xf072);
+#endif
 	increment_pc(4);
 }
 
@@ -1188,13 +1192,26 @@ void powerpc_cpu::execute_mfspr(uint32 opcode)
 	case powerpc_registers::SPR_CTR:	d = ctr();		break;
 	case powerpc_registers::SPR_VRSAVE:	d = vrsave();	break;
 #ifdef SHEEPSHAVER
-	case powerpc_registers::SPR_SDR1:	d = 0xdead001f;	break;
+	case powerpc_registers::SPR_SDR1:
+		d = 0xdead001f;
+		if (ppc32_regs_ && !ppc32_regs_->read_spr(spr, d))
+			abort();
+		break;
 	case powerpc_registers::SPR_PVR: {
 		extern uint32 PVR;
 		d = PVR;
 		break;
 	}
-	default: d = 0;
+	default:
+		if (ppc32_regs_) {
+			if (!ppc32_regs_->read_spr(spr, d)) {
+				fprintf(stderr, "Unimplemented PowerPC SPR read %u at %08x\n", spr, pc());
+				abort();
+			}
+		} else {
+			d = 0; // OldWorld legacy behavior, only without an attached bridge.
+		}
+		break;
 #else
 	default: execute_illegal(opcode);
 #endif
@@ -1214,7 +1231,14 @@ void powerpc_cpu::execute_mtspr(uint32 opcode)
 	case powerpc_registers::SPR_LR:		lr() = s;		break;
 	case powerpc_registers::SPR_CTR:	ctr() = s;		break;
 	case powerpc_registers::SPR_VRSAVE:	vrsave() = s;	break;
-#ifndef SHEEPSHAVER
+#ifdef SHEEPSHAVER
+	default:
+		if (!ppc32_regs_ || !ppc32_regs_->write_spr(spr, s)) {
+			fprintf(stderr, "Unimplemented PowerPC SPR write %u at %08x\n", spr, pc());
+			abort();
+		}
+		break;
+#else
 	default: execute_illegal(opcode);
 #endif
 	}
