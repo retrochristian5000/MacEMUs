@@ -12,6 +12,32 @@ int main() {
     ppc32_mmu mmu;
     ppc32_registers r(mmu, 0x000c0000u);
     uint32_t v=0;
+
+    // mfmsr copies live MSR state in supervisor mode without changing it.
+    v=0xffffffffu;
+    assert(r.mfmsr(v)&&v==0u);
+    const uint32_t live_msr=ppc32_mmu::MSR_RI|ppc32_mmu::MSR_IR|
+        ppc32_mmu::MSR_DR|ppc32_mmu::MSR_EE;
+    r.set_msr(live_msr);
+    v=0u;
+    assert(r.mfmsr(v)&&v==live_msr&&r.msr()==live_msr);
+
+    // An unprivileged mfmsr must not expose supervisor state or clobber RT.
+    r.set_msr(live_msr|ppc32_mmu::MSR_PR);
+    v=0x12345678u;
+    assert(!r.mfmsr(v)&&v==0x12345678u);
+    assert(r.msr()==(live_msr|ppc32_mmu::MSR_PR));
+
+    // A prior rfi must be visible to the next mfmsr (no cached MSR value).
+    r.set_msr(0u);
+    assert(r.write_spr(ppc32_registers::SRR0,0x00001000u));
+    assert(r.write_spr(ppc32_registers::SRR1,live_msr));
+    uint32_t resume_pc=0u;
+    assert(r.rfi(resume_pc)&&resume_pc==0x00001000u);
+    v=0u;
+    assert(r.mfmsr(v)&&v==live_msr);
+    r.reset();
+
     assert(r.read_spr(287,v)&&v==0x000c0000u);
     assert(!r.write_spr(287,9u));
     v=33; assert(!r.read_spr(1008,v)&&v==33);
