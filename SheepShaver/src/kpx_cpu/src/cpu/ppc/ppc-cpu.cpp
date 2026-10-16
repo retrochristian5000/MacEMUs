@@ -24,6 +24,10 @@
 #include "vm_alloc.h"
 #include "cpu/vm.hpp"
 #include "cpu/ppc/ppc-cpu.hpp"
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+#include "cpu/ppc/ppc-mmu-registers.hpp"
+#include "boot_debugger.h"
+#endif
 #ifndef SHEEPSHAVER
 #include "basic-kernel.hpp"
 #endif
@@ -591,6 +595,15 @@ void powerpc_cpu::execute(uint32 entry)
 			for (;;) {
 				// Execute all cached blocks
 				for (;;) {
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+					// Sample compiled-block entry without per-instruction tracing.
+					static unsigned jit_sample_count;
+					if ((++jit_sample_count & 0x3fffu) == 0) {
+						SheepShaverBootDebuggerCPU(
+							pc(), 0, ppc32_regs_ ? ppc32_regs_->msr() : 0);
+						SheepShaverBootDebuggerPump();
+					}
+#endif
 					codegen.execute(bi->entry_point);
 
 					if (!spcflags().empty()) {
@@ -686,6 +699,14 @@ void powerpc_cpu::execute(uint32 entry)
 			// Execute all cached blocks
 		  pdi_execute:
 			for (;;) {
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+				static unsigned decode_sample_count;
+				if ((++decode_sample_count & 0x3fffu) == 0) {
+					SheepShaverBootDebuggerCPU(
+						pc(), 0, ppc32_regs_ ? ppc32_regs_->msr() : 0);
+					SheepShaverBootDebuggerPump();
+				}
+#endif
 				const int r = bi->size % 4;
 				di = bi->di + r;
 				int n = (bi->size + 3) / 4;
@@ -723,6 +744,14 @@ void powerpc_cpu::execute(uint32 entry)
   do_interpret:
 	for (;;) {
 		uint32 opcode = vm_read_memory_4(pc());
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+		static unsigned interp_sample_count;
+		if ((++interp_sample_count & 0x3fffu) == 0) {
+			SheepShaverBootDebuggerCPU(
+				pc(), opcode, ppc32_regs_ ? ppc32_regs_->msr() : 0);
+			SheepShaverBootDebuggerPump();
+		}
+#endif
 		const instr_info_t *ii = decode(opcode);
 #if PPC_EXECUTE_DUMP_STATE
 		if (dump_state)
