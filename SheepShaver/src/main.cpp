@@ -159,7 +159,9 @@ bool InitAll(const char *vmdir)
 
 	// Install ROM patches
 	if (!PatchROM()) {
-		ErrorAlert(GetString(STR_UNSUPPORTED_ROM_TYPE_ERR));
+		const char *reason = ROMPatchError();
+		ErrorAlert(reason && *reason ? reason :
+		           GetString(STR_UNSUPPORTED_ROM_TYPE_ERR));
 		return false;
 	}
 
