@@ -1581,6 +1581,7 @@ if [[ "x$EMULATED_PPC" = "xyes" ]]; then
     ../kpx_cpu/src/mathlib/ieeefp.cpp \
     ../kpx_cpu/src/mathlib/mathlib.cpp \
     ../kpx_cpu/src/cpu/ppc/ppc-cpu.cpp \
+    ../kpx_cpu/src/cpu/ppc/ppc-mmu.cpp \
     ../kpx_cpu/src/cpu/ppc/ppc-decode.cpp \
     ../kpx_cpu/src/cpu/ppc/ppc-execute.cpp \
     ../kpx_cpu/src/cpu/ppc/ppc-translate.cpp \
