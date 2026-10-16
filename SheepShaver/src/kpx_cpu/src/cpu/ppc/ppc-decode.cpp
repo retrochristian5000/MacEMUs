@@ -845,6 +845,11 @@ const powerpc_cpu::instr_info_t powerpc_cpu::powerpc_ii_table[] = {
 	  PPC_I(RLWNM),
 	  M_form, 23, 0, CFLOW_NORMAL
 	},
+	{ "rfi",
+	  EXECUTE_0(rfi),
+	  PPC_I(RFI),
+	  XL_form, 19, 50, CFLOW_JUMP
+	},
 	{ "sc",
 	  EXECUTE_0(syscall),
 	  PPC_I(SC),
