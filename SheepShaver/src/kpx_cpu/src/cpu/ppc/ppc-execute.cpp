@@ -1233,7 +1233,9 @@ void powerpc_cpu::execute_mtspr(uint32 opcode)
 	case powerpc_registers::SPR_VRSAVE:	vrsave() = s;	break;
 #ifdef SHEEPSHAVER
 	default:
-		if (!ppc32_regs_ || !ppc32_regs_->write_spr(spr, s)) {
+		if (!ppc32_regs_)
+			break; // Preserve SheepShaver's legacy non-UEA SPR behavior.
+		if (!ppc32_regs_->write_spr(spr, s)) {
 			fprintf(stderr, "Unimplemented PowerPC SPR write %u at %08x\n", spr, pc());
 			abort();
 		}
