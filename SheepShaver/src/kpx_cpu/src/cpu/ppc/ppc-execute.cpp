@@ -1174,7 +1174,24 @@ void powerpc_cpu::execute_mffs(uint32 opcode)
 void powerpc_cpu::execute_mfmsr(uint32 opcode)
 {
 #ifdef SHEEPSHAVER
-	operand_RD::set(this, opcode, ppc32_regs_ ? ppc32_regs_->msr() : 0xf072);
+	if (ppc32_regs_) {
+		// X-form: bits 11..20 and Rc must be zero; only RT is variable.
+		// Keep old ROM behavior unchanged when supervisor mode is off.
+		if (opcode & 0x001ff801u) {
+			fprintf(stderr, "Invalid PPC mfmsr encoding at %08x, opcode = %08x\n",
+			        pc(), opcode);
+			abort(); // Guest illegal-instruction exception is not wired yet.
+		}
+		uint32 value;
+		if (!ppc32_regs_->mfmsr(value)) {
+			fprintf(stderr, "Privileged PPC mfmsr in problem state at %08x\n", pc());
+			abort(); // Guest program exception is not wired yet.
+		}
+		operand_RD::set(this, opcode, value);
+	} else {
+		// OldWorld SheepShaver intentionally emulates a synthetic MSR.
+		operand_RD::set(this, opcode, 0xf072);
+	}
 #else
 	operand_RD::set(this, opcode, 0xf072);
 #endif
