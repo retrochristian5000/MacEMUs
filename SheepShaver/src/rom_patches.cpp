@@ -31,6 +31,7 @@
 #include "rom_patches.h"
 #include "startup_limits.h"
 #include "rom_image_reader.h"
+#include "rom_patch_probe.h"
 #include "main.h"
 #include "prefs.h"
 #include "cpu_emulation.h"
@@ -76,18 +77,24 @@ static uint32 sony_offset;	// Offset of .Sony driver resource
 // "Unsupported ROM type". Only a patch failure stops boot; never bypass an
 // unmatched signature or execute partially patched firmware.
 static char rom_decode_error[200];
-static char rom_patch_error[200];
+static char rom_patch_error[256];
 
 const char *ROMDecodeError(void) { return rom_decode_error; }
 const char *ROMPatchError(void) { return rom_patch_error; }
 
-static bool rom_patch_failure(const char *phase, int line)
+static bool rom_patch_failure(const char *phase, int line,
+                              const char *detail = NULL)
 {
     if (!rom_patch_error[0]) {
-        snprintf(rom_patch_error, sizeof(rom_patch_error),
-                 "ROM patch incompatible: %s check at rom_patches.cpp:%d "
-                 "(decoded ROM may be valid; expected code/patch space differs)",
-                 phase, line);
+        if (detail && *detail)
+            snprintf(rom_patch_error, sizeof(rom_patch_error),
+                     "ROM patch incompatible: %s at rom_patches.cpp:%d: %s",
+                     phase, line, detail);
+        else
+            snprintf(rom_patch_error, sizeof(rom_patch_error),
+                     "ROM patch incompatible: %s check at rom_patches.cpp:%d "
+                     "(decoded ROM may be valid; expected code/patch space differs)",
+                     phase, line);
     }
     fprintf(stderr, "SheepShaver: %s\n", rom_patch_error);
     return false;
@@ -685,7 +692,26 @@ static bool patch_nanokernel_boot(void)
 		*lp = htonl(0x38000000);
 	}
 	static const uint8 sr_init_dat[] = {0x35, 0x4a, 0xff, 0xfc, 0x7d, 0x86, 0x50, 0x2e};
-	if ((base = find_rom_data(0x3101b0, 0x3105b0, sr_init_dat, sizeof(sr_init_dat))) == 0) return rom_patch_failure(__func__, __LINE__);
+	if ((base = find_rom_data(0x3101b0, 0x3105b0, sr_init_dat, sizeof(sr_init_dat))) == 0) {
+		const sheep_rom::SRInitProbe probe =
+			sheep_rom::probe_sr_init(ROMBaseHost, ROM_SIZE);
+		char detail[170];
+		if (probe.elsewhere_count) {
+			snprintf(detail, sizeof(detail),
+			         "sr_init 354AFFFC/7D86502E missing in 3101B0-3105B0; "
+			         "%u full match(es) elsewhere in decoded nanokernel, first=%06lx; "
+			         "NOT safe to auto-patch",
+			         probe.elsewhere_count, (unsigned long)probe.elsewhere_offset);
+		} else {
+			snprintf(detail, sizeof(detail),
+			         "sr_init 354AFFFC/7D86502E missing; partial word hits=%u/%u; "
+			         "at 3101B0=%08x %08x (not CHRP BITMAP)",
+			         probe.first_word_count, probe.second_word_count,
+			         (unsigned)probe.window_first_word,
+			         (unsigned)probe.window_second_word);
+		}
+		return rom_patch_failure(__func__, __LINE__, detail);
+	}
 	D(bug("sr_init %08lx\n", base));
 	lp = (uint32 *)(ROMBaseHost + loc + 8);
 	*lp = htonl(0x48000000 | ((base - loc - 8) & 0x3fffffc));	// b		ROMBase+0x3101b0
