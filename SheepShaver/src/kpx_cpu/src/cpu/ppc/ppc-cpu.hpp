@@ -445,6 +445,7 @@ private:
 	template< class Rc >
 	void execute_mffs(uint32 opcode);
 	void execute_mfmsr(uint32 opcode);
+	void execute_mtmsr(uint32 opcode);
 	template< class SPR >
 	void execute_mfspr(uint32 opcode);
 	template< class TBR >
