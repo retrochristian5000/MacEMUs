@@ -1331,8 +1331,16 @@ int main(int argc, char **argv)
 	emul_func(NULL);
 
 quit:
-	if (startup_exit_status != EXIT_SUCCESS)
+	if (startup_exit_status != EXIT_SUCCESS) {
 		startup_report("failure", "startup ended before guest ROM execution");
+#if SDL_PLATFORM_MACOS
+		// Preserve the actual startup-stage trace instead of exiting at once.
+		// The debugger trip is a Cocoa main-thread modal inspector; it must
+		// not run from a Unix signal handler.
+		if (startup_preferences_ready)
+			SheepShaverBootDebuggerTrip(startup_stage, 0, 0);
+#endif
+	}
 	Quit();
 	return startup_exit_status;
 }
