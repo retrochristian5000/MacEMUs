@@ -38,18 +38,62 @@ static std::vector<uint8_t> wrap_chrp(const std::vector<uint8_t> &payload, bool 
     return out;
 }
 
+// Compact, copyright-free LZSS fixture: zero runs refer to a dictionary
+// slot that never holds the 8-byte NewWorld identity at ROM+0x30d064.
+static std::vector<uint8_t> compact_fixture_lzss(const std::vector<uint8_t>& raw)
+{
+    const size_t marker = 0x30d064u;
+    assert(raw.size() == sheep_rom::kRomSize);
+    std::vector<uint8_t> out;
+    size_t i = 0;
+    while (i < raw.size()) {
+        const size_t flags = out.size();
+        out.push_back(0);
+        for (unsigned token = 0; token < 8 && i < raw.size(); ++token) {
+            size_t zeros = raw.size() - i < 18 ? raw.size() - i : 18;
+            if (i < marker && zeros > marker - i) zeros = marker - i;
+            const bool literal = (i >= marker && i < marker + 8) || zeros < 3;
+            if (literal) {
+                out[flags] |= uint8_t(1u << token);
+                out.push_back(raw[i++]);
+            } else {
+                // Initial dictionary is zero, index 0x200 stays zero.
+                out.push_back(0x00);
+                out.push_back(uint8_t(0x20u | (zeros - 3u)));
+                i += zeros;
+            }
+        }
+    }
+    return out;
+}
+
 int main(int argc, char **argv)
 {
     std::vector<uint8_t> rom(sheep_rom::kRomSize, 0);
     std::vector<uint8_t> decoded(sheep_rom::kRomSize, 0);
     sheep_rom::Kind kind = sheep_rom::kInvalid;
-    assert(!sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
+    sheep_rom::DecodeStatus status = sheep_rom::kDecodeOK;
+    assert(!sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind, &status));
+    assert(status == sheep_rom::kDecodeUnknownIdentity);
     memcpy(rom.data() + 0x30d064, "Boot Gossamer", 13);
     assert(sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kOldWorld);
     memcpy(rom.data() + 0x30d064, "NewWorld", 8);
     assert(sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kNewWorld);
+
+    // A valid CHRP image padded to precisely 4 MiB must still be parsed
+    // as CHRP, not copied as a raw ROM (regression for original dispatch).
+    const std::vector<uint8_t> compact = compact_fixture_lzss(rom);
+    std::vector<uint8_t> padded = wrap_chrp(compact, false);
+    assert(padded.size() < sheep_rom::kRomSize);
+    padded.resize(sheep_rom::kRomSize, 0);
+    memset(decoded.data(), 0xcc, decoded.size());
+    assert(sheep_rom::decode(padded.data(), padded.size(),
+                             decoded.data(), decoded.size(), kind, &status));
+    assert(status == sheep_rom::kDecodeOK && kind == sheep_rom::kNewWorld);
+    assert(memcmp(decoded.data(), rom.data(), rom.size()) == 0);
+
     if (argc > 1) {
         FILE *f = std::fopen(argv[1], "wb");
         assert(f);
@@ -61,7 +105,9 @@ int main(int argc, char **argv)
     std::vector<uint8_t> chrp = wrap_chrp(lz, false);
     assert(sheep_rom::decode(chrp.data(), chrp.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kNewWorld);
-    assert(!sheep_rom::decode(chrp.data(), chrp.size() - 1, decoded.data(), decoded.size(), kind));
+    assert(!sheep_rom::decode(chrp.data(), chrp.size() - 1,
+                              decoded.data(), decoded.size(), kind, &status));
+    assert(status == sheep_rom::kDecodeBadCHRPBounds);
 
     // 'prcl' with a final 'rom ' parcel, including the last-entry sentinel.
     std::vector<uint8_t> parcel(0x20 + lz.size(), 0);
@@ -81,7 +127,8 @@ int main(int argc, char **argv)
     assert(!sheep_rom::decode(bad.data(), bad.size(), decoded.data(), decoded.size(), kind));
     bad = chrp;
     bad.resize(sheep_rom::kMaxFileSize+1);
-    assert(!sheep_rom::decode(bad.data(), bad.size(), decoded.data(), decoded.size(), kind));
-    std::puts("ROM format/identity: OldWorld + NewWorld CHRP lzss/prcl PASS");
+    assert(!sheep_rom::decode(bad.data(), bad.size(), decoded.data(), decoded.size(), kind, &status));
+    assert(status == sheep_rom::kDecodeTooLarge);
+    std::puts("ROM format/identity: OldWorld + NewWorld CHRP lzss/prcl + padded CHRP PASS");
     return 0;
 }
