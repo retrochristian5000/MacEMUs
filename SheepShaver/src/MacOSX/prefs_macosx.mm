@@ -194,9 +194,12 @@ static unsigned boot_debug_write = 0, boot_debug_read = 0;
 static int boot_debug_enabled = 1; // collect early startup stages before prefs load
 static NSWindow *boot_debug_window = nil;
 static NSTextView *boot_debug_text = nil;
+static NSButton *boot_debug_quit_button = nil;
+static BOOL boot_debug_tripped = NO;
 
-@interface SheepShaverBootDebugActions : NSObject
+@interface SheepShaverBootDebugActions : NSObject <NSWindowDelegate>
 - (void)copyTrace:(id)sender;
+- (void)quitAfterFault:(id)sender;
 @end
 @implementation SheepShaverBootDebugActions
 - (void)copyTrace:(id)sender
@@ -206,6 +209,17 @@ static NSTextView *boot_debug_text = nil;
     NSPasteboard *board = [NSPasteboard generalPasteboard];
     [board clearContents];
     [board setString:[boot_debug_text string] forType:NSPasteboardTypeString];
+}
+- (void)quitAfterFault:(id)sender
+{
+    if (boot_debug_tripped)
+        [NSApp stopModalWithCode:NSModalResponseStop];
+}
+- (BOOL)windowShouldClose:(id)sender
+{
+    // Do not accidentally destroy the only evidence during a fault trip.
+    // The explicit Quit SheepShaver button dismisses the modal inspector.
+    return !boot_debug_tripped;
 }
 @end
 static SheepShaverBootDebugActions *boot_debug_actions = nil;
@@ -350,10 +364,62 @@ extern "C" void SheepShaverBootDebuggerOpen(int enabled)
     [[boot_debug_window contentView] addSubview:copy];
     [copy release];
 
+    boot_debug_quit_button = [[NSButton alloc] initWithFrame:
+        NSMakeRect(frame.size.width - 175, 4, 160, 28)];
+    [boot_debug_quit_button setTitle:@"Quit SheepShaver"];
+    [boot_debug_quit_button setBezelStyle:NSRoundedBezelStyle];
+    [boot_debug_quit_button setAutoresizingMask:NSViewMinXMargin];
+    [boot_debug_quit_button setTarget:boot_debug_actions];
+    [boot_debug_quit_button setAction:@selector(quitAfterFault:)];
+    [boot_debug_quit_button setHidden:YES];
+    [[boot_debug_window contentView] addSubview:boot_debug_quit_button];
+    [boot_debug_window setDelegate:boot_debug_actions];
+
     [boot_debug_window setFrameAutosaveName:@"SheepShaverBootDebugger"];
     [boot_debug_window orderFront:nil]; // do not steal keyboard focus from SDL
     SheepShaverBootDebuggerLog(
         "[debugger] Boot diagnostics enabled; PPC samples are periodic, not single-step.");
     SheepShaverBootDebuggerPump();
     [pool release];
+}
+
+
+/*
+ * Fault trip is deliberately synchronous: guest execution is suspended
+ * at its failed opcode, while AppKit handles only the debugger UI. This
+ * function returns only after an explicit Quit SheepShaver action.
+ *
+ * Do not call from signal handlers or background threads; AppKit requires
+ * its main thread and a SIGSEGV/SIGILL handler cannot enter a modal loop.
+ */
+extern "C" int SheepShaverBootDebuggerTrip(const char *reason,
+                                             uint32_t pc, uint32_t opcode)
+{
+    if (!boot_debug_enabled || !boot_debug_window || !boot_debug_text ||
+        ![NSThread isMainThread] || boot_debug_tripped)
+        return 0;
+
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    char line[BOOT_DEBUG_LINE_LEN];
+    snprintf(line, sizeof(line), "[FAULT TRIP] %s PC=%08x opcode=%08x",
+             reason ? reason : "guest execution halted",
+             (unsigned)pc, (unsigned)opcode);
+    SheepShaverBootDebuggerLog(line);
+    SheepShaverBootDebuggerLog(
+        "[FAULT TRIP] Guest halted. Copy Trace, then click Quit SheepShaver.");
+    SheepShaverBootDebuggerPump();
+
+    boot_debug_tripped = YES;
+    [boot_debug_window setTitle:@"SheepShaver Boot Debugger — FAULT TRIPPED"];
+    [boot_debug_quit_button setHidden:NO];
+    [boot_debug_window makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
+
+    // This nested AppKit loop keeps the debugger responsive while the guest
+    // stays stopped. Closing the title bar is disabled while the trip is set.
+    [NSApp runModalForWindow:boot_debug_window];
+    [boot_debug_window setTitle:@"SheepShaver Boot Debugger"];
+    boot_debug_tripped = NO;
+    [pool release];
+    return 1;
 }
