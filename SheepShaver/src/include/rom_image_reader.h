@@ -10,6 +10,33 @@ namespace sheep_rom {
 enum { kRomSize = 4 * 1024 * 1024, kMaxFileSize = 16 * 1024 * 1024 };
 enum Kind { kInvalid = 0, kOldWorld = 1, kNewWorld = 2 };
 
+// Preserve which validation step failed: a readable ROM container may be
+// decoded correctly but differ from the ROM families SheepShaver recognizes.
+enum DecodeStatus {
+    kDecodeOK = 0,
+    kDecodeBadArguments,
+    kDecodeTooLarge,
+    kDecodeUnknownContainer,
+    kDecodeMissingCHRPMetadata,
+    kDecodeBadCHRPBounds,
+    kDecodeBadCompressedROM,
+    kDecodeUnknownIdentity
+};
+inline const char *decode_status_string(DecodeStatus status)
+{
+    switch (status) {
+    case kDecodeOK: return "decoded ROM identity recognized";
+    case kDecodeBadArguments: return "empty input, null buffer or undersized output";
+    case kDecodeTooLarge: return "ROM container exceeds 16 MiB limit";
+    case kDecodeUnknownContainer: return "neither a raw 4 MiB ROM nor CHRP-BOOT container";
+    case kDecodeMissingCHRPMetadata: return "CHRP LZSS/parcels offset or size missing";
+    case kDecodeBadCHRPBounds: return "CHRP payload offset/size outside file";
+    case kDecodeBadCompressedROM: return "malformed parcel layout or LZSS output";
+    case kDecodeUnknownIdentity: return "decoded 4 MiB ROM has no recognized boot identity";
+    }
+    return "unknown ROM decode status";
+}
+
 inline Kind identify(const uint8_t *rom, size_t bytes)
 {
     if (!rom || bytes < 0x30d064u + 13u) return kInvalid;
@@ -115,14 +142,21 @@ inline bool parcels(const uint8_t *src, size_t size, uint8_t *dst, size_t cap)
     return false;  // No ROM parcel found.
 }
 
-inline bool decode(const uint8_t *src, size_t size, uint8_t *rom, size_t cap, Kind &kind)
+inline bool decode(const uint8_t *src, size_t size, uint8_t *rom, size_t cap,
+                   Kind &kind, DecodeStatus *status = NULL)
 {
     kind = kInvalid;
-    if (!src || !rom || cap < kRomSize || size > kMaxFileSize) return false;
-    if (size == kRomSize) {
-        memcpy(rom, src, kRomSize);
-    } else {
-        if (size < 11 || memcmp(src, "<CHRP-BOOT>", 11) != 0) return false;
+    if (status) *status = kDecodeBadArguments;
+    if (!src || !rom || !size || cap < kRomSize) return false;
+    if (size > kMaxFileSize) {
+        if (status) *status = kDecodeTooLarge;
+        return false;
+    }
+
+    // Prioritize the CHRP magic over the file size: a padded CHRP image can
+    // be exactly 4 MiB and must not be mistaken for an uncompressed ROM.
+    const bool is_chrp = size >= 11 && memcmp(src, "<CHRP-BOOT>", 11) == 0;
+    if (is_chrp) {
         uint32_t off = 0, bytes = 0;
         bool found = chrp_constant(src, size, "constant lzss-offset", off) &&
                      chrp_constant(src, size, "constant lzss-size", bytes);
@@ -130,15 +164,32 @@ inline bool decode(const uint8_t *src, size_t size, uint8_t *rom, size_t cap, Ki
             found = chrp_constant(src, size, "constant parcels-offset", off) &&
                     chrp_constant(src, size, "constant parcels-size", bytes);
         }
-        if (!found || bytes == 0 || off > size || bytes > size - off) return false;
+        if (!found) {
+            if (status) *status = kDecodeMissingCHRPMetadata;
+            return false;
+        }
+        if (bytes == 0 || off > size || bytes > size - off) {
+            if (status) *status = kDecodeBadCHRPBounds;
+            return false;
+        }
         uint32_t signature = 0;
-        bool ok = be32(src, size, off, signature) &&
-                  (signature == 0x7072636cu ?
-                      parcels(src + off, bytes, rom, kRomSize) :
-                      lzss(src + off, bytes, rom, kRomSize));
-        if (!ok) return false;
+        const bool ok = be32(src, size, off, signature) &&
+            (signature == 0x7072636cu ?
+                parcels(src + off, bytes, rom, kRomSize) :
+                lzss(src + off, bytes, rom, kRomSize));
+        if (!ok) {
+            if (status) *status = kDecodeBadCompressedROM;
+            return false;
+        }
+    } else if (size == kRomSize) {
+        memcpy(rom, src, kRomSize);
+    } else {
+        if (status) *status = kDecodeUnknownContainer;
+        return false;
     }
+
     kind = identify(rom, kRomSize);
+    if (status) *status = kind == kInvalid ? kDecodeUnknownIdentity : kDecodeOK;
     return kind != kInvalid;
 }
 
