@@ -30,6 +30,7 @@
 #include <Cocoa/Cocoa.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include "boot_debugger.h"
 #include "VMSettingsController.h"
@@ -207,6 +208,22 @@ extern "C" void SheepShaverBootDebuggerLog(const char *line)
     if (boot_debug_write - boot_debug_read > BOOT_DEBUG_LINES)
         boot_debug_read = boot_debug_write - BOOT_DEBUG_LINES;
     pthread_mutex_unlock(&boot_debug_lock);
+
+    // A guest instruction fault may be followed immediately by abort().
+    // Persist only fatal diagnostic entries, not high-volume CPU samples.
+    if (strncmp(line, "[FAULT]", 7) == 0) {
+        const char *home = getenv("HOME");
+        char path[2048];
+        if (home && snprintf(path, sizeof(path),
+                             "%s/Library/Logs/SheepShaver.log", home) <
+                        (int)sizeof(path)) {
+            FILE *f = fopen(path, "a");
+            if (f) {
+                fprintf(f, "SheepShaver [PPC] %s\n", line);
+                fclose(f);
+            }
+        }
+    }
 }
 
 extern "C" void SheepShaverBootDebuggerCPU(uint32_t pc, uint32_t opcode,
@@ -280,8 +297,8 @@ extern "C" void SheepShaverBootDebuggerOpen(int enabled)
     [NSApplication sharedApplication];
 
     const NSRect frame = NSMakeRect(120, 140, 740, 360);
-    NSUInteger style = NSTitledWindowMask | NSClosableWindowMask |
-                       NSMiniaturizableWindowMask | NSResizableWindowMask;
+    NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
+                       NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
     boot_debug_window = [[NSWindow alloc] initWithContentRect:frame
                                                    styleMask:style
                                                      backing:NSBackingStoreBuffered
