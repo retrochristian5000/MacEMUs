@@ -608,12 +608,64 @@ static const uint8 adbop_patch[] = {	// Call ADBOp() completion procedure
 
 
 /*
+ * PatchROM modifies the decoded image well before its last compatibility
+ * check. Keep the unmodified bytes and restore them if ANY stage rejects
+ * the ROM, so a fault trip or later inspection sees the original firmware.
+ * The extra 68k emulator copy above ROM_SIZE is written only on success.
+ * A 4 MiB snapshot is intentionally limited to startup, not the guest loop.
+ */
+class ROMPatchTransaction {
+public:
+    ROMPatchTransaction()
+        : saved_(NULL), saved_resource_(rsrc_ptr),
+          saved_sifter_count_(num_sifters), saved_sony_(sony_offset),
+          saved_type_(ROMType), committed_(false)
+    {
+        if (ROMBaseHost) {
+            saved_ = static_cast<uint8 *>(malloc(ROM_SIZE));
+            if (saved_)
+                memcpy(saved_, ROMBaseHost, ROM_SIZE);
+        }
+    }
+
+    ~ROMPatchTransaction()
+    {
+        if (saved_ && !committed_) {
+            memcpy(ROMBaseHost, saved_, ROM_SIZE);
+            rsrc_ptr = saved_resource_;
+            num_sifters = saved_sifter_count_;
+            sony_offset = saved_sony_;
+            ROMType = saved_type_;
+        }
+        free(saved_);
+    }
+
+    bool ready() const { return saved_ != NULL; }
+    void commit() { committed_ = true; }
+
+private:
+    uint8 *saved_;
+    uint32 saved_resource_;
+    int saved_sifter_count_;
+    uint32 saved_sony_;
+    int saved_type_;
+    bool committed_;
+
+    ROMPatchTransaction(const ROMPatchTransaction &);
+    ROMPatchTransaction &operator=(const ROMPatchTransaction &);
+};
+
+/*
  *  Install ROM patches (RAMBase and KernelDataAddr must be set)
  */
 
 bool PatchROM(void)
 {
     rom_patch_error[0] = 0;
+    ROMPatchTransaction transaction;
+    if (!transaction.ready())
+        return rom_patch_failure(__func__, __LINE__,
+                                 "cannot allocate decoded ROM rollback buffer");
 	// Print ROM info
 	D(bug("Checksum: %08lx\n", ntohl(*(uint32 *)ROMBaseHost)));
 	D(bug("Version: %04x\n", ntohs(*(uint16 *)(ROMBaseHost + 8))));
@@ -669,8 +721,10 @@ bool PatchROM(void)
 	*lp = htonl(0);
 #endif
 
-	// Copy 68k emulator to 2MB boundary
+	// Copy 68k emulator to 2MB boundary. This is the final write:
+	// commit only after every required compatibility check has succeeded.
 	memcpy(ROMBaseHost + ROM_SIZE, ROMBaseHost + (ROM_SIZE - 0x100000), 0x100000);
+	transaction.commit();
 	return true;
 }
 
