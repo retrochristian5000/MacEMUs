@@ -69,10 +69,11 @@ int main() {
     assert(r.write_spr(ppc32_registers::SRR1,full_msr));
     resume_pc=0;
     assert(r.rfi(resume_pc)&&resume_pc==0x1000u);
-    assert(r.mtmsr(ppc32_mmu::MSR_EE|ppc32_mmu::MSR_RI, true));
+    assert(r.mtmsr(0, true));
     const uint32_t after_mtmsr = full_msr & ~(ppc32_mmu::MSR_EE |
         ppc32_mmu::MSR_RI);
-    assert(r.mfmsr(v)&&v==(after_mtmsr|ppc32_mmu::MSR_EE|ppc32_mmu::MSR_RI));
+    v=0xffffffffu;
+    assert(r.mfmsr(v)&&v==after_mtmsr);
     r.reset();
 
     assert(r.read_spr(287,v)&&v==0x000c0000u);
