@@ -130,6 +130,34 @@ int main(int argc, char **argv)
                     unsigned(probe.window_first_word),
                     unsigned(probe.window_second_word));
     }
+    const size_t candidate = probe.expected_offset ? probe.expected_offset :
+        (probe.elsewhere_count == 1 ? probe.elsewhere_offset : 0);
+    if (candidate) {
+        const sheep_rom::SRInitContext context =
+            sheep_rom::probe_sr_init_context(image.data(), image.size(), candidate);
+        if (context.valid) {
+            std::printf("Candidate PPC code at decoded-ROM +0x%lx:\n",
+                        static_cast<unsigned long>(candidate));
+            std::printf("  Previous 4 words:");
+            for (unsigned j = 0; j < 4; ++j)
+                std::printf(" %08x", unsigned(context.before[j]));
+            std::printf("\n  4 words SheepShaver would overwrite:");
+            for (unsigned j = 0; j < 4; ++j)
+                std::printf(" %08x", unsigned(context.overwrite[j]));
+            std::printf("\n  Following 4 words:");
+            for (unsigned j = 0; j < 4; ++j)
+                std::printf(" %08x", unsigned(context.after[j]));
+            std::printf("\n  PVR opcode hits=%u, matching companion cmpwi=%u",
+                        context.pvr_matches, context.pvr_guarded_matches);
+            if (context.pvr_guarded_first)
+                std::printf(", first at +0x%lx",
+                    static_cast<unsigned long>(context.pvr_guarded_first));
+            std::printf("\n");
+            if (probe.elsewhere_count)
+                std::puts("  Relocation candidate is NOT automatically approved "
+                          "for patching: surrounding control flow must be reviewed.");
+        }
+    }
     std::puts("ROM decoding verified; nanokernel signature status above is "
               "diagnostic only, not a compatibility guarantee.");
     return 0;
