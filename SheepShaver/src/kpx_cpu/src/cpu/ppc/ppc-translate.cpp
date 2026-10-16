@@ -781,6 +781,12 @@ powerpc_cpu::compile_block(uint32 entry_point)
 		}
 		case PPC_I(MFSPR):		// Move from Special-Purpose Register
 		{
+#ifdef SHEEPSHAVER
+			// The optimized JIT path hardcodes supervisor SPR values.
+			// Use the live register backend while experimental mode is on.
+			if (ppc32_regs_)
+				goto do_generic;
+#endif
 			const int spr = operand_SPR::get(this, opcode);
 			switch (spr) {
 			case powerpc_registers::SPR_XER:
@@ -816,6 +822,10 @@ powerpc_cpu::compile_block(uint32 entry_point)
 		}
 		case PPC_I(MTSPR):		// Move to Special-Purpose Register
 		{
+#ifdef SHEEPSHAVER
+			if (ppc32_regs_)
+				goto do_generic;
+#endif
 			dg.gen_load_T0_GPR(rS_field::extract(opcode));
 			const int spr = operand_SPR::get(this, opcode);
 			switch (spr) {
