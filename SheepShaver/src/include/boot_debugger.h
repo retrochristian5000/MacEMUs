@@ -18,9 +18,10 @@ void SheepShaverBootDebuggerLog(const char *line);
 void SheepShaverBootDebuggerCPU(uint32_t pc, uint32_t opcode, uint32_t msr);
 /* Called from the existing Cocoa/SDL main-thread event pump. */
 void SheepShaverBootDebuggerPump(void);
-/* Fatal guest/startup fault: hold the guest at a modal Cocoa fault trip
- * until the user explicitly clicks Quit SheepShaver. Returns 1 after that
- * choice; returns 0 if debugger is disabled/not running on the UI thread.
+/* Fatal guest/startup fault: hold execution at a modal Cocoa inspector.
+ * Clicking Quit SheepShaver exits(EXIT_FAILURE) without returning to guest
+ * code. Returns 0 only when unavailable or the modal loop stopped unexpectedly,
+ * allowing the caller to use its original fatal path.
  * NEVER invoke from a Unix signal handler; NEVER resume a failed opcode.
  */
 int SheepShaverBootDebuggerTrip(const char *reason, uint32_t pc, uint32_t opcode);
