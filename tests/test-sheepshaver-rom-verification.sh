@@ -20,6 +20,9 @@ grep -F "Identity: NewWorld" "$tmp/info" >/dev/null
 grep -F "Nanokernel sr_init signature: MISSING" "$tmp/info" >/dev/null
 "$tmp/inspect" "$tmp/valid-chrp.rom" > "$tmp/chrp-info"
 grep -F "Container: CHRP compressed" "$tmp/chrp-info" >/dev/null
+grep -F "CHRP declared payload: lzss offset=0x00000080" "$tmp/chrp-info" >/dev/null
+grep -F "CHRP payload end:" "$tmp/chrp-info" >/dev/null
+grep -F "CHRP payload / decoded ROM:" "$tmp/chrp-info" >/dev/null
 grep -F "CHRP boot icon bitmap: tag at outer file" "$tmp/chrp-info" >/dev/null
 grep -F "Nanokernel sr_init signature: MISSING" "$tmp/chrp-info" >/dev/null
 # Reject a same-sized but identity-free image.
