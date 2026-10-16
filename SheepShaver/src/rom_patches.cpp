@@ -674,6 +674,10 @@ static bool patch_nanokernel_boot(void)
 	uint32 *lp;
 	uint32 base, loc;
 
+	// Snapshot code signatures before any boot-vector writes alter the image.
+	const sheep_rom::SRInitProbe sr_probe =
+		sheep_rom::probe_sr_init(ROMBaseHost, ROM_SIZE);
+
 	// ROM boot structure patches
 	lp = (uint32 *)(ROMBaseHost + 0x30d000);
 	lp[0x9c >> 2] = htonl(KernelDataAddr);			// LA_InfoRecord
@@ -693,8 +697,7 @@ static bool patch_nanokernel_boot(void)
 	}
 	static const uint8 sr_init_dat[] = {0x35, 0x4a, 0xff, 0xfc, 0x7d, 0x86, 0x50, 0x2e};
 	if ((base = find_rom_data(0x3101b0, 0x3105b0, sr_init_dat, sizeof(sr_init_dat))) == 0) {
-		const sheep_rom::SRInitProbe probe =
-			sheep_rom::probe_sr_init(ROMBaseHost, ROM_SIZE);
+		const sheep_rom::SRInitProbe &probe = sr_probe;
 		char detail[170];
 		if (probe.elsewhere_count) {
 			snprintf(detail, sizeof(detail),
