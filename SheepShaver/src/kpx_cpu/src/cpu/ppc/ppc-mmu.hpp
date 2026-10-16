@@ -65,10 +65,12 @@ class ppc32_mmu
 {
 public:
 	enum {
+		MSR_LE = 0x00000001,
 		MSR_RI = 0x00000002,
 		MSR_DR = 0x00000010,
 		MSR_IR = 0x00000020,
 		MSR_IP = 0x00000040,
+		MSR_ME = 0x00001000,
 		MSR_FP = 0x00002000,
 		MSR_PR = 0x00004000,
 		MSR_EE = 0x00008000,
