@@ -239,7 +239,7 @@ MACEMUS_BASILISK_CPU_TARGET := uae_cpu_x86_64
 endif
 endif
 
-.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration sheepshaver-settings test-sheepshaver-92-mmu test-sheepshaver-92-registers test-sheepshaver-mmu-link test-sheepshaver-register-layout test-sheepshaver-rom-verification check-sheepshaver-rom
+.PHONY: all basilisk sheepshaver install install-basilisk install-sheepshaver install-info test-install clean clean-basilisk clean-sheepshaver help homebrew-info cppflags-info linker-info test-linker-flags test-type-conversions test-homebrew-frameworks test-sdl2-linkage check-sdl2-exports audit-sdl-addons test-native-xcode native-info test-sheepshaver-startup test-sheepshaver-app-logging test-sheepshaver-configuration test-sheepshaver-boot-debugger sheepshaver-settings test-sheepshaver-92-mmu test-sheepshaver-92-registers test-sheepshaver-mmu-link test-sheepshaver-register-layout test-sheepshaver-rom-verification check-sheepshaver-rom
 
 all: basilisk sheepshaver
 
@@ -388,6 +388,9 @@ test-sheepshaver-app-logging:
 test-sheepshaver-configuration:
 	@CXX="$(CXX)" ./tests/test-sheepshaver-configuration.sh
 
+test-sheepshaver-boot-debugger:
+	@CC="$(CC)" sh ./tests/test-sheepshaver-boot-debugger.sh
+
 # Experimental PPC32 guest MMU only; does NOT activate Mac OS 9.2 boot.
 test-sheepshaver-92-mmu:
 	@CXX="$(CXX)" ./tests/test-sheepshaver-92-mmu.sh
@@ -485,6 +488,7 @@ help:
 		'  make test-sheepshaver-startup  Check ROM and RAM startup limits' \
 		'  make test-sheepshaver-app-logging  Verify failure-stage tracing' \
 		'  make test-sheepshaver-configuration  Test ROM/configuration routing' \
+		'  make test-sheepshaver-boot-debugger  Check default Cocoa debugger wiring' \
 		'  make test-sheepshaver-92-mmu  Check experimental PPC32 MMU translations' \
 		'  make test-sheepshaver-92-registers  Test PPC MMU supervisor registers' \
 		'  make test-sheepshaver-mmu-link Verify PPC32 reset symbol and Xcode CPU sources' \
