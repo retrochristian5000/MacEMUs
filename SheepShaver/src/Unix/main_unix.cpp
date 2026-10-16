@@ -661,14 +661,22 @@ static void get_system_info(void)
 static bool load_mac_rom(void)
 {
     const char *rom_path = PrefsFindString("rom");
-    int rom_fd = open(rom_path && *rom_path ? rom_path : ROM_FILE_NAME, O_RDONLY);
+    const char *selected_rom = rom_path && *rom_path ? rom_path : ROM_FILE_NAME;
+    int rom_fd = open(selected_rom, O_RDONLY);
     if (rom_fd < 0) {
-        rom_fd = open(ROM_FILE_NAME2, O_RDONLY);
+        // Preserve historical fallback, but record the actual file used:
+        // an inaccessible configured ROM must not masquerade as a bad one.
+        selected_rom = ROM_FILE_NAME2;
+        rom_fd = open(selected_rom, O_RDONLY);
         if (rom_fd < 0) {
             ErrorAlert(GetString(STR_NO_ROM_FILE_ERR));
             return false;
         }
     }
+    char rom_source[256];
+    snprintf(rom_source, sizeof(rom_source), "Reading ROM source: %s",
+             selected_rom);
+    startup_report("info", rom_source);
     printf("%s", GetString(STR_READING_ROM_FILE));
     const off_t file_size = lseek(rom_fd, 0, SEEK_END);
     if (file_size <= 0 ||
