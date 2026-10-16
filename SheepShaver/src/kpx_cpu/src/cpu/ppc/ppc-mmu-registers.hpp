@@ -2,7 +2,8 @@
  * Experimental PPC32 MMU supervisor registers for SheepShaver.
  * SheepShaver (C) Christian Bauer and Marc Hellwig.
  * MacEMUs additions licensed GPL-2.0-or-later.
- * Offline only: NOT connected to native SIGILL/interpreter or JIT.
+ * The register bridge can be attached to the opt-in PPC interpreter/JIT
+ * paths. Guest memory and instruction-fetch translation are NOT yet wired.
  */
 #ifndef SHEEPSHAVER_PPC32_REGISTERS_HPP
 #define SHEEPSHAVER_PPC32_REGISTERS_HPP
