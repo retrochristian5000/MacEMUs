@@ -113,6 +113,7 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 		abort(); // Never pretend the CPU returned from an exception.
 	}
 
+	const uint32 old_msr = ppc32_regs_->msr();
 	uint32 resume_pc;
 	if (!ppc32_regs_->rfi(resume_pc)) {
 		boot_debug_exception("privileged rfi", pc(), opcode);
@@ -120,6 +121,17 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 		abort(); // A guest program-exception path is not wired yet.
 	}
 
+#ifdef __APPLE__
+	if ((old_msr ^ ppc32_regs_->msr()) &
+	    (ppc32_mmu::MSR_IR | ppc32_mmu::MSR_DR | ppc32_mmu::MSR_PR)) {
+		char line[160];
+		snprintf(line, sizeof(line),
+		         "[rfi] PC=%08x -> %08x MSR=%08x -> %08x",
+		         (unsigned)pc(), (unsigned)resume_pc,
+		         (unsigned)old_msr, (unsigned)ppc32_regs_->msr());
+		SheepShaverBootDebuggerLog(line);
+	}
+#endif
 	// Reservation is lost on exception transitions; do not reuse a prior lwarx.
 	regs().reserve_valid = 0;
 	pc() = resume_pc; // Not pc + 4: RFI is a branch and ends the decode block.
@@ -1213,6 +1225,7 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
     }
 
     const uint32 src = operand_RS::get(this, opcode);
+    const uint32 old_msr = ppc32_regs_->msr();
     const bool limited = (opcode & 0x00010000u) != 0;
     if (!ppc32_regs_->mtmsr(src, limited)) {
         boot_debug_exception("privileged mtmsr", pc(), opcode);
@@ -1220,6 +1233,17 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
         abort(); // Guest program exception is not wired yet.
     }
 
+#ifdef __APPLE__
+    if ((old_msr ^ ppc32_regs_->msr()) &
+        (ppc32_mmu::MSR_IR | ppc32_mmu::MSR_DR | ppc32_mmu::MSR_PR)) {
+        char line[160];
+        snprintf(line, sizeof(line),
+                 "[mtmsr] PC=%08x opcode=%08x MSR=%08x -> %08x",
+                 (unsigned)pc(), (unsigned)opcode, (unsigned)old_msr,
+                 (unsigned)ppc32_regs_->msr());
+        SheepShaverBootDebuggerLog(line);
+    }
+#endif
     // The next instruction is fetched after the MSR transition.
     // The JIT and predecode loops end this block via CFLOW_JUMP.
     increment_pc(4);
