@@ -187,13 +187,16 @@ public:
 sheepshaver_cpu::sheepshaver_cpu()
 	: supervisor_regs_(ppc32_guest_mmu(), 0)
 {
-	// Legacy OldWorld boots keep their existing MSR/SPRs and JIT behavior.
-	// This opt-in only enables register/opcode testing. The MMU has NOT yet
-	// been installed on live memory or instruction fetch paths.
+	// Default PPC32 supervisor-register execution uses real MSR/SRR state.
+	// Guest memory and instruction-fetch translation are not yet wired.
+	// An explicit ppc32supervisor=false preference retains legacy stubs.
 	if (PrefsFindBool("ppc32supervisor")) {
-		supervisor_regs_.set_msr(0); // reset in supervisor real-address mode
+		supervisor_regs_.set_msr(0); // supervisor, real-address mode
 		attach_ppc32_registers(&supervisor_regs_);
-		fprintf(stderr, "Experimental PPC32 supervisor mode enabled; full MMU not wired\n");
+		fprintf(stderr, "PPC32 supervisor registers enabled (default); full MMU not wired\n");
+	} else {
+		// Also expose a stale saved 'false' preference after a default change.
+		fprintf(stderr, "Legacy PPC32 MSR stubs enabled (ppc32supervisor=false)\n");
 	}
 	init_decoder();
 
