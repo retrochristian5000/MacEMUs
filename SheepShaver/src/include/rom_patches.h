@@ -34,6 +34,9 @@ extern int ROMType;
 
 extern bool DecodeROM(uint8 *data, uint32 size);
 extern bool PatchROM(void);
+// Details of the most recent ROM rejection, if any (valid until next attempt).
+extern const char *ROMDecodeError(void);
+extern const char *ROMPatchError(void);
 extern void InstallDrivers(void);
 
 extern void AddSifter(uint32 type, int16 id);
