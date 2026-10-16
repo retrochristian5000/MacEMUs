@@ -25,6 +25,17 @@ public:
     // MSR and SR are not numbered SPRs: keep separate operations.
     uint32_t msr() const { return mmu_.msr(); }
     void set_msr(uint32_t v) { mmu_.set_msr(v); }
+
+    // PowerPC OEA mfmsr: a supervisor-only read of the *current* MSR.
+    // Leave the destination untouched when a program exception is needed.
+    // The CPU caller is responsible for delivering that exception.
+    bool mfmsr(uint32_t &value) const {
+        const uint32_t current_msr = mmu_.msr();
+        if (current_msr & ppc32_mmu::MSR_PR)
+            return false;
+        value = current_msr;
+        return true;
+    }
     bool read_sr(unsigned i, uint32_t &v) const {
         if (i >= 16) return false;
         v = mmu_.sr(i); return true;
