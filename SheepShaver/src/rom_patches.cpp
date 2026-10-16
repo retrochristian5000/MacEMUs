@@ -125,8 +125,15 @@ bool DecodeROM(uint8 *data, uint32 size)
 
 static uint32 find_rom_data(uint32 start, uint32 end, const uint8 *data, uint32 data_len)
 {
+	// Search only within the decoded 4 MiB ROM. Some later ROM layouts
+	// shift signatures out of the legacy search windows; do not read past
+	// ROMBaseHost while trying to locate a missing patch instruction.
+	if (!data || !data_len || data_len > ROM_SIZE ||
+	    start >= end || start > ROM_SIZE - data_len)
+		return 0;
 	uint32 ofs = start;
-	while (ofs < end) {
+	const uint32 last_start = ROM_SIZE - data_len;
+	while (ofs < end && ofs <= last_start) {
 		if (!memcmp(ROMBaseHost + ofs, data, data_len))
 			return ofs;
 		ofs++;
