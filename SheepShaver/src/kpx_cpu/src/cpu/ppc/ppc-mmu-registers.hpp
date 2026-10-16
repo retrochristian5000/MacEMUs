@@ -39,18 +39,18 @@ public:
     }
 
     // PPC32 mtmsr: only supervisor code may write MSR.
-    // L=1 modifies EE and RI alone; L=0 writes the requested 32-bit MSR.
+    // L=1 modifies EE and RI only. L=0 updates writable MSR bits but
+    // leaves ME (machine-check enable) and LE (endianness) unchanged.
     // Do not change any state on a privilege failure. The CPU caller
     // handles execution synchronization and guest exceptions.
     bool mtmsr(uint32_t value, bool limited) {
         const uint32_t old_msr = mmu_.msr();
         if (old_msr & ppc32_mmu::MSR_PR)
             return false;
-        if (limited) {
-            const uint32_t mask = ppc32_mmu::MSR_EE | ppc32_mmu::MSR_RI;
-            value = (old_msr & ~mask) | (value & mask);
-        }
-        mmu_.set_msr(value);
+        const uint32_t mask = limited
+            ? uint32_t(ppc32_mmu::MSR_EE | ppc32_mmu::MSR_RI)
+            : ~uint32_t(ppc32_mmu::MSR_ME | ppc32_mmu::MSR_LE);
+        mmu_.set_msr((old_msr & ~mask) | (value & mask));
         return true;
     }
     bool read_sr(unsigned i, uint32_t &v) const {
