@@ -99,7 +99,9 @@ void AddPrefsDefaults(void)
 	PrefsAddBool("noclipconversion", false);
 	PrefsAddBool("ignoresegv", true);
 	PrefsAddBool("ignoreillegal", true);
-	PrefsAddBool("ppc32supervisor", false);
+	// Use the real PPC32 supervisor-register path by default. Legacy MSR
+	// stubs are available only through an explicit false preference.
+	PrefsAddBool("ppc32supervisor", true);
 
 #if USE_JIT
 	// JIT compiler specific options
