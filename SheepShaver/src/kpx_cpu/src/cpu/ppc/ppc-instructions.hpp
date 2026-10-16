@@ -174,6 +174,7 @@ enum powerpc_instruction {
 	PPC_I(RLWIMI),
 	PPC_I(RLWINM),
 	PPC_I(RLWNM),
+	PPC_I(RFI),
 	PPC_I(SC),
 	PPC_I(SLW),
 	PPC_I(SRAW),
