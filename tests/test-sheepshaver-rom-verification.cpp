@@ -1,5 +1,6 @@
 // No Apple ROM is bundled: synthetic Old World and CHRP New World fixtures.
 #include "../SheepShaver/src/include/rom_image_reader.h"
+#include "../SheepShaver/src/include/rom_patch_probe.h"
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -84,6 +85,27 @@ int main(int argc, char **argv)
     memcpy(rom.data() + 0x30d064, "NewWorld", 8);
     assert(sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kNewWorld);
+
+    // sr_init must be an exact sequence in decoded PPC nanokernel code.
+    // Relocation is reported, never automatically treated as patch-safe.
+    std::vector<uint8_t> sr(rom);
+    const uint8_t sr_bytes[8] = {0x35,0x4a,0xff,0xfc,0x7d,0x86,0x50,0x2e};
+    sheep_rom::SRInitProbe probe = sheep_rom::probe_sr_init(sr.data(), sr.size());
+    assert(!probe.expected_offset && !probe.elsewhere_offset);
+    memcpy(sr.data() + 0x3101b0, sr_bytes, sizeof(sr_bytes));
+    probe = sheep_rom::probe_sr_init(sr.data(), sr.size());
+    assert(probe.expected_offset == 0x3101b0u && probe.elsewhere_count == 0);
+    memset(sr.data() + 0x3101b0, 0, sizeof(sr_bytes));
+    memcpy(sr.data() + 0x310700, sr_bytes, sizeof(sr_bytes));
+    probe = sheep_rom::probe_sr_init(sr.data(), sr.size());
+    assert(probe.expected_offset == 0 && probe.elsewhere_offset == 0x310700u);
+    assert(probe.elsewhere_count == 1 && probe.first_word_count == 1);
+    assert(probe.second_word_count == 1);
+    // One surviving instruction is NOT a sufficient compatibility match.
+    memset(sr.data() + 0x310704, 0, 4);
+    probe = sheep_rom::probe_sr_init(sr.data(), sr.size());
+    assert(!probe.expected_offset && !probe.elsewhere_offset);
+    assert(probe.first_word_count == 1 && probe.second_word_count == 0);
 
     // A valid CHRP image padded to precisely 4 MiB must still be parsed
     // as CHRP, not copied as a raw ROM (regression for original dispatch).
