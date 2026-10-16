@@ -17,6 +17,8 @@ grep -F "4 words SheepShaver would overwrite: 354afffc 7d86502e 12345678 8765432
 grep -F "PVR opcode hits=1, matching companion cmpwi=1" "$tmp/relocated-info" >/dev/null
 "$tmp/inspect" "$tmp/valid.rom" > "$tmp/info"
 grep -F "Identity: NewWorld" "$tmp/info" >/dev/null
+grep -F "Decoded ROM header: checksum-field=" "$tmp/info" >/dev/null
+grep -F "version-field=" "$tmp/info" >/dev/null
 grep -F "Nanokernel sr_init signature: MISSING" "$tmp/info" >/dev/null
 "$tmp/inspect" "$tmp/valid-chrp.rom" > "$tmp/chrp-info"
 grep -F "Container: CHRP compressed" "$tmp/chrp-info" >/dev/null
