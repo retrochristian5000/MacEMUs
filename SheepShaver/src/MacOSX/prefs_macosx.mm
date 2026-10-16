@@ -28,6 +28,10 @@
 #define _UINT64
 
 #include <Cocoa/Cocoa.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <string.h>
+#include "boot_debugger.h"
 #include "VMSettingsController.h"
 
 #ifdef USE_SDL_VIDEO
@@ -171,4 +175,142 @@ bool ShowSheepShaverSettings(void)
 	[NSApp runModalForWindow:window];
 	[pool release];
 	return true;
+}
+
+
+/*
+ * Separate, read-only PPC boot debugger window.
+ *
+ * The guest display remains SDL-owned; this Cocoa window never pauses the
+ * emulator, reads live guest memory, or dispatches from a signal handler.
+ * Bounded ASCII diagnostics are queued under a short try-lock, then consumed
+ * on the macOS main thread (from the existing SDL/interrupt event pump).
+ */
+enum { BOOT_DEBUG_LINES = 128, BOOT_DEBUG_LINE_LEN = 192 };
+static pthread_mutex_t boot_debug_lock = PTHREAD_MUTEX_INITIALIZER;
+static char boot_debug_lines[BOOT_DEBUG_LINES][BOOT_DEBUG_LINE_LEN];
+static unsigned boot_debug_write = 0, boot_debug_read = 0;
+static int boot_debug_enabled = 1; // collect early startup stages before prefs load
+static NSWindow *boot_debug_window = nil;
+static NSTextView *boot_debug_text = nil;
+
+extern "C" void SheepShaverBootDebuggerLog(const char *line)
+{
+    if (!boot_debug_enabled || !line)
+        return;
+    // Emulation and signal-handler paths must never wait on the UI.
+    if (pthread_mutex_trylock(&boot_debug_lock) != 0)
+        return;
+    snprintf(boot_debug_lines[boot_debug_write % BOOT_DEBUG_LINES],
+             BOOT_DEBUG_LINE_LEN, "%s", line);
+    ++boot_debug_write;
+    if (boot_debug_write - boot_debug_read > BOOT_DEBUG_LINES)
+        boot_debug_read = boot_debug_write - BOOT_DEBUG_LINES;
+    pthread_mutex_unlock(&boot_debug_lock);
+}
+
+extern "C" void SheepShaverBootDebuggerCPU(uint32_t pc, uint32_t opcode,
+                                            uint32_t msr)
+{
+    char line[BOOT_DEBUG_LINE_LEN];
+    if (opcode) {
+        snprintf(line, sizeof(line), "[PPC sample] PC=%08x opcode=%08x MSR=%08x",
+                 (unsigned)pc, (unsigned)opcode, (unsigned)msr);
+    } else {
+        snprintf(line, sizeof(line), "[JIT sample] PC=%08x MSR=%08x (opcode not sampled)",
+                 (unsigned)pc, (unsigned)msr);
+    }
+    SheepShaverBootDebuggerLog(line);
+}
+
+extern "C" void SheepShaverBootDebuggerPump(void)
+{
+    if (!boot_debug_enabled || !boot_debug_window || !boot_debug_text ||
+        ![NSThread isMainThread])
+        return;
+
+    char pending[BOOT_DEBUG_LINES][BOOT_DEBUG_LINE_LEN];
+    unsigned count = 0;
+    if (pthread_mutex_trylock(&boot_debug_lock) != 0)
+        return;
+    while (boot_debug_read != boot_debug_write && count < BOOT_DEBUG_LINES) {
+        snprintf(pending[count], BOOT_DEBUG_LINE_LEN, "%s",
+                 boot_debug_lines[boot_debug_read % BOOT_DEBUG_LINES]);
+        ++boot_debug_read;
+        ++count;
+    }
+    pthread_mutex_unlock(&boot_debug_lock);
+    if (!count)
+        return;
+
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    NSMutableString *combined = [NSMutableString stringWithString:[boot_debug_text string]];
+    for (unsigned i = 0; i < count; ++i) {
+        NSString *line = [NSString stringWithUTF8String:pending[i]];
+        if (line)
+            [combined appendFormat:@"%@\n", line];
+    }
+    // Do not accumulate unbounded text during an instruction loop or hang.
+    if ([combined length] > 30000)
+        [combined deleteCharactersInRange:NSMakeRange(0, [combined length] - 24000)];
+    [boot_debug_text setString:combined];
+    [boot_debug_text scrollRangeToVisible:NSMakeRange([[boot_debug_text string] length], 0)];
+    [boot_debug_window displayIfNeeded];
+    [pool release];
+}
+
+extern "C" void SheepShaverBootDebuggerOpen(int enabled)
+{
+    // Called on the main thread after preference initialization, not by PPC.
+    boot_debug_enabled = enabled != 0;
+    if (!boot_debug_enabled) {
+        if (boot_debug_window)
+            [boot_debug_window orderOut:nil];
+        return;
+    }
+    if (boot_debug_window) {
+        [boot_debug_window orderFront:nil];
+        SheepShaverBootDebuggerPump();
+        return;
+    }
+    if (![NSThread isMainThread])
+        return;
+
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    [NSApplication sharedApplication];
+
+    const NSRect frame = NSMakeRect(120, 140, 740, 360);
+    NSUInteger style = NSTitledWindowMask | NSClosableWindowMask |
+                       NSMiniaturizableWindowMask | NSResizableWindowMask;
+    boot_debug_window = [[NSWindow alloc] initWithContentRect:frame
+                                                   styleMask:style
+                                                     backing:NSBackingStoreBuffered
+                                                       defer:NO];
+    [boot_debug_window setTitle:@"SheepShaver Boot Debugger"];
+    [boot_debug_window setReleasedWhenClosed:NO];
+
+    NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:
+        [[boot_debug_window contentView] bounds]];
+    [scroll setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [scroll setHasVerticalScroller:YES];
+    [scroll setBorderType:NSBezelBorder];
+
+    boot_debug_text = [[NSTextView alloc] initWithFrame:[[scroll contentView] bounds]];
+    [boot_debug_text setEditable:NO];
+    [boot_debug_text setSelectable:YES];
+    [boot_debug_text setRichText:NO];
+    [boot_debug_text setFont:[NSFont userFixedPitchFontOfSize:12.0]];
+    [boot_debug_text setVerticallyResizable:YES];
+    [boot_debug_text setHorizontallyResizable:NO];
+    [boot_debug_text setAutoresizingMask:NSViewWidthSizable];
+    [scroll setDocumentView:boot_debug_text];
+    [[boot_debug_window contentView] addSubview:scroll];
+    [boot_debug_text release]; // NSScrollView owns document view
+    [scroll release];
+    [boot_debug_window setFrameAutosaveName:@"SheepShaverBootDebugger"];
+    [boot_debug_window orderFront:nil]; // do not steal keyboard focus from SDL
+    SheepShaverBootDebuggerLog(
+        "[debugger] Boot diagnostics enabled; PPC samples are periodic, not single-step.");
+    SheepShaverBootDebuggerPump();
+    [pool release];
 }
