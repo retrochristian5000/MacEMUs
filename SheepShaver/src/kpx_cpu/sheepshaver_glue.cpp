@@ -32,6 +32,9 @@
 #include "cpu/ppc/ppc-operations.hpp"
 #include "cpu/ppc/ppc-instructions.hpp"
 #include "cpu/ppc/ppc-mmu-registers.hpp"
+#ifdef __APPLE__
+#include "boot_debugger.h"
+#endif
 #include "thunks.h"
 
 // Used for NativeOp trampolines
@@ -974,6 +977,11 @@ void HandleInterrupt(powerpc_registers *r)
 #ifdef USE_SDL_VIDEO
 	// We must fill in the events queue in the same thread that did call SDL_SetVideoMode()
 	SDL_PumpEvents();
+#endif
+#ifdef __APPLE__
+	// Consume queued diagnostics on the same UI thread, without touching
+	// the guest SDL display or invoking Cocoa from the 60Hz tick thread.
+	SheepShaverBootDebuggerPump();
 #endif
 
 	// Do nothing if interrupts are disabled
