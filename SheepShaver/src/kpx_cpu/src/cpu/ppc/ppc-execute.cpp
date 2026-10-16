@@ -32,6 +32,9 @@
 #include "cpu/ppc/ppc-operands.hpp"
 #include "cpu/ppc/ppc-operations.hpp"
 #include "cpu/ppc/ppc-execute.hpp"
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+#include "boot_debugger.h"
+#endif
 #ifdef SHEEPSHAVER
 #include "cpu/ppc/ppc-mmu-registers.hpp"
 #endif
@@ -53,12 +56,27 @@
 #define DEBUG 0
 #include "debug.h"
 
+// Safe only from ordinary CPU execution, never from host signal handlers.
+static inline void boot_debug_exception(const char *kind, uint32 pc, uint32 opcode)
+{
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+	char line[160];
+	snprintf(line, sizeof(line), "[FAULT] %s PC=%08x opcode=%08x",
+	         kind, (unsigned)pc, (unsigned)opcode);
+	SheepShaverBootDebuggerLog(line);
+	SheepShaverBootDebuggerPump();
+#else
+	(void)kind; (void)pc; (void)opcode;
+#endif
+}
+
 /**
  *	Illegal & NOP instructions
  **/
 
 void powerpc_cpu::execute_illegal(uint32 opcode)
 {
+	boot_debug_exception("illegal instruction", pc(), opcode);
 	fprintf(stderr, "Illegal instruction at %08x, opcode = %08x\n", pc(), opcode);
 
 #ifdef SHEEPSHAVER
@@ -89,6 +107,7 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 {
 #ifdef SHEEPSHAVER
 	if (opcode != 0x4c000064u || ppc32_regs_ == NULL) {
+		boot_debug_exception("unusable rfi", pc(), opcode);
 		fprintf(stderr, "Unusable PPC rfi at %08x (opcode %08x, register bridge %s)\n",
 		        pc(), opcode, ppc32_regs_ ? "attached" : "missing");
 		abort(); // Never pretend the CPU returned from an exception.
@@ -96,6 +115,7 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 
 	uint32 resume_pc;
 	if (!ppc32_regs_->rfi(resume_pc)) {
+		boot_debug_exception("privileged rfi", pc(), opcode);
 		fprintf(stderr, "Privileged PPC rfi attempted in problem state at %08x\n", pc());
 		abort(); // A guest program-exception path is not wired yet.
 	}
@@ -1186,6 +1206,7 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
     // is the only legal option field. All other bits 11..20 and Rc
     // are reserved. Do not silently consume an invalid instruction.
     if (opcode & 0x001ef801u) {
+        boot_debug_exception("invalid mtmsr", pc(), opcode);
         fprintf(stderr, "Invalid PPC mtmsr encoding at %08x, opcode = %08x\n",
                 pc(), opcode);
         abort(); // Guest illegal-instruction exception is not wired yet.
@@ -1194,6 +1215,7 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
     const uint32 src = operand_RS::get(this, opcode);
     const bool limited = (opcode & 0x00010000u) != 0;
     if (!ppc32_regs_->mtmsr(src, limited)) {
+        boot_debug_exception("privileged mtmsr", pc(), opcode);
         fprintf(stderr, "Privileged PPC mtmsr in problem state at %08x\n", pc());
         abort(); // Guest program exception is not wired yet.
     }
@@ -1213,12 +1235,14 @@ void powerpc_cpu::execute_mfmsr(uint32 opcode)
 		// X-form: bits 11..20 and Rc must be zero; only RT is variable.
 		// Keep old ROM behavior unchanged when supervisor mode is off.
 		if (opcode & 0x001ff801u) {
+			boot_debug_exception("invalid mfmsr", pc(), opcode);
 			fprintf(stderr, "Invalid PPC mfmsr encoding at %08x, opcode = %08x\n",
 			        pc(), opcode);
 			abort(); // Guest illegal-instruction exception is not wired yet.
 		}
 		uint32 value;
 		if (!ppc32_regs_->mfmsr(value)) {
+			boot_debug_exception("privileged mfmsr", pc(), opcode);
 			fprintf(stderr, "Privileged PPC mfmsr in problem state at %08x\n", pc());
 			abort(); // Guest program exception is not wired yet.
 		}
