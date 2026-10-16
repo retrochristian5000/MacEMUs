@@ -109,6 +109,33 @@ int main(int argc, char **argv)
     assert(!probe.expected_offset && !probe.elsewhere_offset);
     assert(probe.first_word_count == 1 && probe.second_word_count == 0);
 
+    // Reproduce the reported 9.2.2 location exactly, without needing a
+    // proprietary ROM. Verify the full set of words that would be replaced.
+    memset(sr.data() + 0x310700, 0, sizeof(sr_bytes));
+    const size_t reported = 0x3106f8u;
+    memcpy(sr.data() + reported, sr_bytes, sizeof(sr_bytes));
+    put_be32(sr, reported + 8, 0x12345678u);
+    put_be32(sr, reported + 12, 0x87654321u);
+    put_be32(sr, reported - 4, 0xaabbccddu);
+    put_be32(sr, reported + 16, 0xdeadbeefu);
+    const size_t pvr = 0x310740u;
+    put_be32(sr, pvr, 0x7d9f42a6u);
+    put_be32(sr, pvr + 24, 0x2c0c0001u);
+    probe = sheep_rom::probe_sr_init(sr.data(), sr.size());
+    assert(!probe.expected_offset && probe.elsewhere_offset == reported);
+    assert(probe.elsewhere_count == 1);
+    const sheep_rom::SRInitContext context =
+        sheep_rom::probe_sr_init_context(sr.data(), sr.size(), reported);
+    assert(context.valid && context.offset == reported);
+    assert(context.before[3] == 0xaabbccddu);
+    assert(context.overwrite[0] == 0x354afffcu);
+    assert(context.overwrite[1] == 0x7d86502eu);
+    assert(context.overwrite[2] == 0x12345678u);
+    assert(context.overwrite[3] == 0x87654321u);
+    assert(context.after[0] == 0xdeadbeefu);
+    assert(context.pvr_guarded_matches == 1);
+    assert(context.pvr_guarded_first == pvr);
+
     // A valid CHRP image padded to precisely 4 MiB must still be parsed
     // as CHRP, not copied as a raw ROM (regression for original dispatch).
     const std::vector<uint8_t> compact = compact_fixture_lzss(rom);
