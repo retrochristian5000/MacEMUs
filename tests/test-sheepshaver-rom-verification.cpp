@@ -33,8 +33,10 @@ static std::vector<uint8_t> wrap_chrp(const std::vector<uint8_t> &payload, bool 
     std::snprintf(line, sizeof(line), "%06X constant %s-offset\n%06X constant %s-size\n",
                   off, parcel ? "parcels" : "lzss",
                   unsigned(payload.size()), parcel ? "parcels" : "lzss");
-    assert(strlen(line) < off - 11);
+    const char boot_icon[] = "<ICON SIZE=1,1><BITMAP>ff</BITMAP></ICON>\n";
+    assert(strlen(line) + strlen(boot_icon) < off - 11);
     memcpy(out.data() + 11, line, strlen(line));
+    memcpy(out.data() + 11 + strlen(line), boot_icon, strlen(boot_icon));
     memcpy(out.data() + off, payload.data(), payload.size());
     return out;
 }
@@ -130,6 +132,12 @@ int main(int argc, char **argv)
     std::vector<uint8_t> chrp = wrap_chrp(lz, false);
     assert(sheep_rom::decode(chrp.data(), chrp.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kNewWorld);
+    if (argc > 2) {
+        FILE *f = std::fopen(argv[2], "wb");
+        assert(f);
+        assert(std::fwrite(chrp.data(), 1, chrp.size(), f) == chrp.size());
+        assert(std::fclose(f) == 0);
+    }
     assert(!sheep_rom::decode(chrp.data(), chrp.size() - 1,
                               decoded.data(), decoded.size(), kind, &status));
     assert(status == sheep_rom::kDecodeBadCHRPBounds);
