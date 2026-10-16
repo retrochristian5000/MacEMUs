@@ -25,6 +25,7 @@
 		0846E4BC14B1267200574779 /* ppc-dyngen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0856CDE614A99EEF000B1711 /* ppc-dyngen.cpp */; };
 		0846E4BE14B1267A00574779 /* ppc-decode.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0856CDE414A99EEF000B1711 /* ppc-decode.cpp */; };
 		0846E4C014B1267F00574779 /* ppc-cpu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0856CDE214A99EEF000B1711 /* ppc-cpu.cpp */; };
+		A11020261016000000000003 /* ppc-mmu.cpp in Sources */ = {isa = PBXBuildFile; fileRef = A11020261016000000000004 /* ppc-mmu.cpp */; };
 		0846E4C114B1268B00574779 /* jit-cache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0856CDCD14A99EEF000B1711 /* jit-cache.cpp */; };
 		0846E4C214B1269600574779 /* basic-dyngen.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0856CDC514A99EEF000B1711 /* basic-dyngen.cpp */; };
 		0846E51314B128ED00574779 /* sheepshaver_glue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0856CDBB14A99EEF000B1711 /* sheepshaver_glue.cpp */; };
@@ -222,6 +223,7 @@
 		0856CDE014A99EEF000B1711 /* ppc-blockinfo.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "ppc-blockinfo.hpp"; sourceTree = "<group>"; };
 		0856CDE114A99EEF000B1711 /* ppc-config.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "ppc-config.hpp"; sourceTree = "<group>"; };
 		0856CDE214A99EEF000B1711 /* ppc-cpu.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "ppc-cpu.cpp"; sourceTree = "<group>"; };
+		A11020261016000000000004 /* ppc-mmu.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "ppc-mmu.cpp"; sourceTree = "<group>"; };
 		0856CDE314A99EEF000B1711 /* ppc-cpu.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = "ppc-cpu.hpp"; sourceTree = "<group>"; };
 		0856CDE414A99EEF000B1711 /* ppc-decode.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "ppc-decode.cpp"; sourceTree = "<group>"; };
 		0856CDE614A99EEF000B1711 /* ppc-dyngen.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = "ppc-dyngen.cpp"; sourceTree = "<group>"; };
@@ -675,6 +677,7 @@
 				0856CDE014A99EEF000B1711 /* ppc-blockinfo.hpp */,
 				0856CDE114A99EEF000B1711 /* ppc-config.hpp */,
 				0856CDE214A99EEF000B1711 /* ppc-cpu.cpp */,
+				A11020261016000000000004 /* ppc-mmu.cpp */,
 				0856CDE314A99EEF000B1711 /* ppc-cpu.hpp */,
 				0856CDE414A99EEF000B1711 /* ppc-decode.cpp */,
 				0856CDE614A99EEF000B1711 /* ppc-dyngen.cpp */,
@@ -1039,6 +1042,7 @@
 				0846E4BC14B1267200574779 /* ppc-dyngen.cpp in Sources */,
 				0846E4BE14B1267A00574779 /* ppc-decode.cpp in Sources */,
 				0846E4C014B1267F00574779 /* ppc-cpu.cpp in Sources */,
+				A11020261016000000000003 /* ppc-mmu.cpp in Sources */,
 				0846E4C114B1268B00574779 /* jit-cache.cpp in Sources */,
 				0846E4C214B1269600574779 /* basic-dyngen.cpp in Sources */,
 				0846E51314B128ED00574779 /* sheepshaver_glue.cpp in Sources */,
