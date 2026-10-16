@@ -60,6 +60,34 @@ grep -F 'target < ROM_SIZE ? target : 0' "$patch" >/dev/null
 grep -F 'rom_trap_has_room(' "$patch" >/dev/null
 grep -F 'invalid A-trap %04x target/patch span' "$patch" >/dev/null
 
+# Preserve nanokernel CPU/MMU instructions unless the user explicitly
+# re-enables the historical ROM rewrite stage. Other patch passes retain
+# their original order and still reject incompatible ROMs.
+prefs=SheepShaver/src/prefs_items.cpp
+grep -F '{"patchnanokernel", TYPE_BOOLEAN, false,' "$prefs" >/dev/null
+grep -F 'PrefsAddBool("patchnanokernel", false);' "$prefs" >/dev/null
+grep -F 'patch_nanokernel skipped (default)' "$patch" >/dev/null
+grep -F 'if (PrefsFindBool("patchnanokernel")) {' "$patch" >/dev/null
+awk '
+    /^bool PatchROM\(void\)/ { in_patch=1 }
+    in_patch && /if \(!patch_nanokernel_boot\(\)\)/ {
+        if (stage != 0) exit 1; stage=1; next
+    }
+    in_patch && /if \(!patch_68k_emul\(\)\)/ {
+        if (stage != 1) exit 1; stage=2; next
+    }
+    in_patch && /if \(PrefsFindBool\("patchnanokernel"\)\) \{/ {
+        if (stage != 2) exit 1; stage=3; next
+    }
+    in_patch && /if \(!patch_nanokernel\(\)\)/ {
+        if (stage != 3) exit 1; stage=4; next
+    }
+    in_patch && /if \(!patch_68k\(\)\)/ {
+        if (stage != 4) exit 1; stage=5; exit
+    }
+    END { if (stage != 5) exit 1 }
+' "$patch"
+
 # Only the pattern-match functions are instrumented. There must be no
 # silent failure exit left within PatchROM and its required subpatches.
 awk '
