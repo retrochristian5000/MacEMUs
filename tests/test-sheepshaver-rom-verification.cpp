@@ -135,6 +135,12 @@ int main(int argc, char **argv)
     assert(context.after[0] == 0xdeadbeefu);
     assert(context.pvr_guarded_matches == 1);
     assert(context.pvr_guarded_first == pvr);
+    if (argc > 3) {
+        FILE *f = std::fopen(argv[3], "wb");
+        assert(f);
+        assert(std::fwrite(sr.data(), 1, sr.size(), f) == sr.size());
+        assert(std::fclose(f) == 0);
+    }
 
     // A valid CHRP image padded to precisely 4 MiB must still be parsed
     // as CHRP, not copied as a raw ROM (regression for original dispatch).
