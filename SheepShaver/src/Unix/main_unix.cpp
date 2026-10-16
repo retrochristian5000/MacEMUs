@@ -1005,6 +1005,10 @@ int main(int argc, char **argv)
 	// Independent Cocoa diagnostics window, enabled by default. The existing
 	// SDL guest display is not replaced, and the window never starts a modal loop.
 	SheepShaverBootDebuggerOpen(PrefsFindBool("bootdebugger"));
+	if (PrefsFindBool("bootdebugger") && PrefsFindBool("ignoreillegal"))
+		SheepShaverBootDebuggerLog(
+			"[warning] ignoreillegal=true: illegal opcodes are skipped, "
+			"not fault-tripped. Set --ignoreillegal false to trap them.");
 #endif
 	// Only use nogui preference if not passed as command line argument
 	if (use_gui == -1)
