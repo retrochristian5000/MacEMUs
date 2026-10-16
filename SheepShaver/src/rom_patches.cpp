@@ -727,10 +727,20 @@ bool PatchROM(void)
 	if (!check_rom_patch_space(ADDR_MAP_PATCH_SPACE - 10 * 4, 0x100))
 		return rom_patch_failure(__func__, __LINE__);
 
-	// Apply patches
+	// The boot, PPC-to-68k emulator and 68k integration patches are still
+	// required by the current emulator. The separate nanokernel rewrite pass
+	// is opt-in, leaving the original exception/RFI/MMU instructions intact
+	// for PPC32 supervisor validation. This does NOT disable the preceding
+	// patch_nanokernel_boot stage, including its sr_init signature check.
 	if (!patch_nanokernel_boot()) return rom_patch_failure(__func__, __LINE__);
 	if (!patch_68k_emul()) return rom_patch_failure(__func__, __LINE__);
-	if (!patch_nanokernel()) return rom_patch_failure(__func__, __LINE__);
+	if (PrefsFindBool("patchnanokernel")) {
+		fprintf(stderr, "SheepShaver ROM: legacy patch_nanokernel enabled by preference\n");
+		if (!patch_nanokernel()) return rom_patch_failure(__func__, __LINE__);
+	} else {
+		fprintf(stderr, "SheepShaver ROM: patch_nanokernel skipped (default); "
+		        "boot and 68k integration stages remain active\n");
+	}
 	if (!patch_68k()) return rom_patch_failure(__func__, __LINE__);
 
 #ifdef M68K_BREAK_POINT
