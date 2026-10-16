@@ -1523,6 +1523,10 @@ powerpc_cpu::compile_block(uint32 entry_point)
 			// MSR is runtime CPU state, not a compile-time JIT constant.
 			// Use the same privileged-read handler as the interpreter.
 			goto do_generic;
+		case PPC_I(MTMSR):
+			// The decode table marks this as an end-of-block operation.
+			// Never JIT-hoist or coalesce writes to machine state.
+			goto do_generic;
 		default:				// Direct call to instruction handler
 		{
 			typedef void (*func_t)(dyngen_cpu_base, uint32);
