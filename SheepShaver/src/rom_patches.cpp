@@ -209,12 +209,21 @@ static uint32 find_rom_resource(uint32 s_type, int16 s_id = 4711, bool cont = fa
 
 static uint32 find_rom_trap(uint16 trap)
 {
-	uint32 lp = ROMBase + ReadMacInt32(ROMBase + 0x22);
+	const uint32 table = ReadMacInt32(ROMBase + 0x22);
+	const uint32 index = trap > 0xa800 ?
+		uint32(trap & 0x3ff) : uint32((trap & 0xff) + 0x400);
+	// Table indices and target addresses are decoded-ROM offsets, not
+	// host pointers. An invalid ROM must not redirect a patch out of bounds.
+	if (table > ROM_SIZE - 4 || index > (ROM_SIZE - 4 - table) / 4)
+		return 0;
+	const uint32 target = ReadMacInt32(ROMBase + table + 4 * index);
+	return target < ROM_SIZE ? target : 0;
+}
 
-	if (trap > 0xa800)
-		return ReadMacInt32(lp + 4 * (trap & 0x3ff));
-	else
-		return ReadMacInt32(lp + 4 * ((trap & 0xff) + 0x400));
+static bool rom_trap_has_room(uint16 trap, uint32 bytes)
+{
+	const uint32 target = find_rom_trap(trap);
+	return target && bytes <= ROM_SIZE && target <= ROM_SIZE - bytes;
 }
 
 
@@ -1520,6 +1529,29 @@ static bool patch_68k(void)
 	uint16 *wp;
 	uint8 *bp;
 	uint32 base, loc;
+
+	// These routines are addressed through the ROM's A-trap table, not by
+	// instruction signatures. Validate the target offsets and write spans
+	// *before* changing the first instruction, so an unusual NewWorld ROM
+	// cannot silently redirect a patch to offset zero or beyond the image.
+	const struct { uint16 trap; uint32 bytes; } required_traps[] = {
+		{0xa07c, uint32(sizeof(adbop_patch))}, // ADBOp
+		{0xa058, 4}, {0xa059, 12}, {0xa05a, 12},
+		{0xa093, 4}, {0xa05b, 2}, // Time Manager, PowerOff
+		{0xa9fc, 4}, {0xa9fe, 4}, {0xa9fd, 4} // Scrap Manager
+	};
+	for (unsigned i = 0; i < sizeof(required_traps) / sizeof(required_traps[0]); ++i) {
+		if (!rom_trap_has_room(required_traps[i].trap, required_traps[i].bytes)) {
+			char detail[100];
+			snprintf(detail, sizeof(detail),
+			         "invalid A-trap %04x target/patch span in decoded ROM",
+			         unsigned(required_traps[i].trap));
+			return rom_patch_failure(__func__, __LINE__, detail);
+		}
+	}
+	if (PrefsFindBool("idlewait") && !rom_trap_has_room(0xabf7, 8))
+		return rom_patch_failure(__func__, __LINE__,
+		                         "invalid SynchIdleTime A-trap target");
 
 	// Remove 68k RESET instruction
 	static const uint8 reset_dat[] = {0x4e, 0x70};
