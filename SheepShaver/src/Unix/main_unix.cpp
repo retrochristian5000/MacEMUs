@@ -693,7 +693,9 @@ static bool load_mac_rom(void)
         DecodeROM(rom_tmp, static_cast<uint32>(actual));
     delete[] rom_tmp;
     if (!decoded) {
-        ErrorAlert(GetString(failed ? STR_ROM_FILE_READ_ERR : STR_ROM_SIZE_ERR));
+        const char *reason = ROMDecodeError();
+        ErrorAlert(failed ? GetString(STR_ROM_FILE_READ_ERR) :
+                   (reason && *reason ? reason : GetString(STR_ROM_SIZE_ERR)));
         return false;
     }
 
