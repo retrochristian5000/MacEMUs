@@ -195,6 +195,21 @@ static int boot_debug_enabled = 1; // collect early startup stages before prefs 
 static NSWindow *boot_debug_window = nil;
 static NSTextView *boot_debug_text = nil;
 
+@interface SheepShaverBootDebugActions : NSObject
+- (void)copyTrace:(id)sender;
+@end
+@implementation SheepShaverBootDebugActions
+- (void)copyTrace:(id)sender
+{
+    if (!boot_debug_text)
+        return;
+    NSPasteboard *board = [NSPasteboard generalPasteboard];
+    [board clearContents];
+    [board setString:[boot_debug_text string] forType:NSPasteboardTypeString];
+}
+@end
+static SheepShaverBootDebugActions *boot_debug_actions = nil;
+
 extern "C" void SheepShaverBootDebuggerLog(const char *line)
 {
     if (!boot_debug_enabled || !line)
@@ -306,8 +321,9 @@ extern "C" void SheepShaverBootDebuggerOpen(int enabled)
     [boot_debug_window setTitle:@"SheepShaver Boot Debugger"];
     [boot_debug_window setReleasedWhenClosed:NO];
 
+    const NSRect bounds = [[boot_debug_window contentView] bounds];
     NSScrollView *scroll = [[NSScrollView alloc] initWithFrame:
-        [[boot_debug_window contentView] bounds]];
+        NSMakeRect(0, 36, bounds.size.width, bounds.size.height - 36)];
     [scroll setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
     [scroll setHasVerticalScroller:YES];
     [scroll setBorderType:NSBezelBorder];
@@ -324,6 +340,16 @@ extern "C" void SheepShaverBootDebuggerOpen(int enabled)
     [[boot_debug_window contentView] addSubview:scroll];
     [boot_debug_text release]; // NSScrollView owns document view
     [scroll release];
+
+    boot_debug_actions = [[SheepShaverBootDebugActions alloc] init];
+    NSButton *copy = [[NSButton alloc] initWithFrame:NSMakeRect(10, 4, 112, 28)];
+    [copy setTitle:@"Copy Trace"];
+    [copy setBezelStyle:NSRoundedBezelStyle];
+    [copy setTarget:boot_debug_actions];
+    [copy setAction:@selector(copyTrace:)];
+    [[boot_debug_window contentView] addSubview:copy];
+    [copy release];
+
     [boot_debug_window setFrameAutosaveName:@"SheepShaverBootDebugger"];
     [boot_debug_window orderFront:nil]; // do not steal keyboard focus from SDL
     SheepShaverBootDebuggerLog(
