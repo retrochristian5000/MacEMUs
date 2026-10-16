@@ -42,6 +42,24 @@ grep -F 'last_start = ROM_SIZE - data_len' "$patch" >/dev/null
 grep -F 'ROMPatchError()' SheepShaver/src/main.cpp >/dev/null
 grep -F 'ROMDecodeError()' SheepShaver/src/Unix/main_unix.cpp >/dev/null
 grep -F 'Reading ROM source:' SheepShaver/src/Unix/main_unix.cpp >/dev/null
+
+# Fail-closed, transactional patching: incompatible ROMs must not be left
+# partly rewritten after fault-trip inspection or an aborted boot attempt.
+grep -F 'ROMPatchTransaction transaction;' "$patch" >/dev/null
+grep -F 'if (!transaction.ready())' "$patch" >/dev/null
+grep -F 'memcpy(saved_, ROMBaseHost, ROM_SIZE);' "$patch" >/dev/null
+grep -F 'memcpy(ROMBaseHost, saved_, ROM_SIZE);' "$patch" >/dev/null
+grep -F 'transaction.commit();' "$patch" >/dev/null
+
+# Exhaustion and corrupted ROM-linked pointers must be bounded, without
+# making an unsupported ROM silently appear supported.
+grep -F 'num_sifters >= int(sizeof(sifter_list) / sizeof(sifter_list[0]))' "$patch" >/dev/null
+grep -F 'visited < ROM_SIZE / 14' "$patch" >/dev/null
+grep -F 'next > ROM_SIZE - 14' "$patch" >/dev/null
+grep -F 'target < ROM_SIZE ? target : 0' "$patch" >/dev/null
+grep -F 'rom_trap_has_room(' "$patch" >/dev/null
+grep -F 'invalid A-trap %04x target/patch span' "$patch" >/dev/null
+
 # Only the pattern-match functions are instrumented. There must be no
 # silent failure exit left within PatchROM and its required subpatches.
 awk '
