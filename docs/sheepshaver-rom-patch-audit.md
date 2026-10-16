@@ -30,6 +30,14 @@ Source of truth: `SheepShaver/src/rom_patches.cpp`, called from `SheepShaver/src
 
 These functions are not independent optional modules. Removing an opcode rewrite without replacing its expected hardware/host function can prevent booting, even with PPC32 `mfmsr`, `mtmsr`, `rfi`, and supervisor register support.
 
+### Nanokernel patch policy (experimental)
+
+`patch_nanokernel()` is **skipped by default** (`patchnanokernel=false` in `prefs_items.cpp`), protecting its original PPC MMU, exception-table, FPU/MSR, decrementer, and `rfi` code from that rewrite pass. The legacy pass is retained and can be explicitly selected with a saved preference `patchnanokernel true` or a command-line override. Saved values override compiled defaults.
+
+**Scope guard:** `patch_nanokernel_boot()` still runs beforehand, and `patch_68k_emul()` / `patch_68k()` still modify the decoded ROM for host integration. Thus `patchnanokernel=false` is *not* a fully unpatched Apple ROM execution mode. In particular, the `sr_init` signature check in `patch_nanokernel_boot()` still rejects the user-observed relocated sequence at +0x3106F8 until independent instruction/context validation allows a safe change. This preference cannot by itself get a 9.2.2 ROM past that existing rejection.
+
+Unpatched nanokernel instructions can expose missing emulated hardware functions. Before removing additional patches, implement/verify PPC segment registers, BAT mappings, SDR1, instruction/data address translation, exception delivery and return, FPU state, decrementer timing, and the 68k/PPC handoff. The new preference is for architectural testing, not a 9.2.2 boot success guarantee.
+
 ## Defect ledger and repairs
 
 | ID | Finding | Status | Guard |
@@ -41,6 +49,7 @@ These functions are not independent optional modules. Removing an opcode rewrite
 | ROM-05 | Legacy `sr_init` search window excludes +0x3106F8 | Open compatibility investigation | Read-only signature/context/PVR probes; no auto-patching |
 | ROM-06 | Many nanokernel/68k patches still depend on hard-coded signatures and offsets | Open architectural investigation | Require version-specific control-flow validation and hardware contracts before eliminating patches |
 | ROM-07 | `find_rom_trap` checks ROM offset bounds, but other 68k resource data semantics and offsets remain incompletely validated | Open | Revisit ROM resource spans and side effects if a later patch fails |
+| ROM-08 | Historical `patch_nanokernel()` rewrites guest MMU, exception, MSR/FPU, decrementer and `rfi` paths needed for supervisor validation | Disabled by default, experimental | `patchnanokernel=false` preference; explicit `true` restores the unchanged legacy stage |
 
 **Scope limit:** rollback restores decoded ROM bytes and in-patcher resource/sifter cursors, Sony offset, and ROM type on rejection. It does not undo arbitrary external hardware/device side effects or replace full guest exception delivery. The audio sifter capacity limit prevents overflow, but a ROM with more than 32 distinct sifters may need a larger or dynamic table to preserve all sound features.
 
