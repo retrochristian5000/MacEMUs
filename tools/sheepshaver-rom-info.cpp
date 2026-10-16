@@ -1,9 +1,29 @@
 // Inspect Apple ROM container identity and decode structure; no emulator.
 #include "../SheepShaver/src/include/rom_image_reader.h"
+#include "../SheepShaver/src/include/rom_patch_probe.h"
 #include <cstdio>
 #include <cstdint>
 #include <vector>
 #include <cstring>
+
+// CHRP BOOT script tags are ASCII, outside the compressed PowerPC ROM.
+// Case-insensitive and bounded to the first 128 KiB of the container.
+static size_t chrp_tag_offset(const std::vector<uint8_t> &data, const char *tag)
+{
+    const size_t n = data.size() < 131072u ? data.size() : 131072u;
+    const size_t len = std::strlen(tag);
+    for (size_t off = 0; off + len <= n; ++off) {
+        bool equal = true;
+        for (size_t i = 0; i < len; ++i) {
+            unsigned a = data[off + i], b = static_cast<unsigned char>(tag[i]);
+            if (a >= 'a' && a <= 'z') a -= 'a' - 'A';
+            if (b >= 'a' && b <= 'z') b -= 'a' - 'A';
+            if (a != b) { equal = false; break; }
+        }
+        if (equal) return off;
+    }
+    return size_t(-1);
+}
 
 int main(int argc, char **argv)
 {
@@ -37,11 +57,21 @@ int main(int argc, char **argv)
     sheep_rom::DecodeStatus status = sheep_rom::kDecodeBadArguments;
     const bool ok = sheep_rom::decode(file.data(), file.size(),
                                      image.data(), image.size(), kind, &status);
-    const char *format = file.size() == sheep_rom::kRomSize ? "plain 4 MiB" :
-        (file.size() >= 11 && !memcmp(file.data(), "<CHRP-BOOT>", 11)
-         ? "CHRP compressed" : "unrecognized");
+    const bool is_chrp = file.size() >= 11 &&
+        !memcmp(file.data(), "<CHRP-BOOT>", 11);
+    const char *format = is_chrp ? "CHRP compressed" :
+        (file.size() == sheep_rom::kRomSize ? "plain 4 MiB" : "unrecognized");
     std::printf("ROM file bytes: %lu\nContainer: %s\n",
                 static_cast<unsigned long>(file.size()), format);
+    if (is_chrp) {
+        const size_t bitmap = chrp_tag_offset(file, "<BITMAP>");
+        if (bitmap != size_t(-1))
+            std::printf("CHRP boot icon bitmap: tag at outer file +0x%lx "
+                        "(ASCII boot icon, not a PPC instruction)\n",
+                        static_cast<unsigned long>(bitmap));
+        else
+            std::puts("CHRP boot icon bitmap: not found in first 128 KiB");
+    }
     if (!ok) {
         std::fprintf(stderr, "ROM validation FAILED: %s\n",
                      sheep_rom::decode_status_string(status));
@@ -78,6 +108,29 @@ int main(int argc, char **argv)
         std::printf("New World nanokernel entry region: %s\n",
                     populated ? "nonzero" : "all zero (investigate)");
     }
-    std::puts("ROM format and identity validated; guest Mac OS compatibility NOT established.");
+    const sheep_rom::SRInitProbe probe =
+        sheep_rom::probe_sr_init(image.data(), image.size());
+    if (probe.expected_offset) {
+        std::printf("Nanokernel sr_init signature: legacy window match +0x%lx\n",
+                    static_cast<unsigned long>(probe.expected_offset));
+    } else {
+        std::printf("Nanokernel sr_init signature: MISSING from legacy "
+                    "decoded-ROM window +0x3101B0..+0x3105B0\n");
+        if (probe.elsewhere_count) {
+            std::printf("  %u exact match(es) elsewhere in decoded "
+                        "nanokernel, first +0x%lx (investigate; no auto-patch)\n",
+                        probe.elsewhere_count,
+                        static_cast<unsigned long>(probe.elsewhere_offset));
+        } else {
+            std::printf("  No exact match in +0x310000..+0x320000; "
+                        "individual PPC word hits: first=%u, second=%u\n",
+                        probe.first_word_count, probe.second_word_count);
+        }
+        std::printf("  Legacy start +0x3101B0 words: %08x %08x\n",
+                    unsigned(probe.window_first_word),
+                    unsigned(probe.window_second_word));
+    }
+    std::puts("ROM decoding verified; nanokernel signature status above is "
+              "diagnostic only, not a compatibility guarantee.");
     return 0;
 }
