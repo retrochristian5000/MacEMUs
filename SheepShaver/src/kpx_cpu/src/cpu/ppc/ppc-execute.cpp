@@ -1171,6 +1171,41 @@ void powerpc_cpu::execute_mffs(uint32 opcode)
 	increment_pc(4);
 }
 
+// 32-bit PowerPC Move To Machine State Register (opcode 31, XO 146).
+// This is execution synchronizing, so the decoder must end the block here.
+// The optional L bit changes only EE and RI rather than all of MSR.
+void powerpc_cpu::execute_mtmsr(uint32 opcode)
+{
+#ifdef SHEEPSHAVER
+    if (!ppc32_regs_) {
+        // Preserve legacy behavior for an explicitly disabled PPC32 bridge.
+        execute_illegal(opcode);
+        return;
+    }
+    // RS is variable; bit 15 of the instruction word (0x00010000)
+    // is the only legal option field. All other bits 11..20 and Rc
+    // are reserved. Do not silently consume an invalid instruction.
+    if (opcode & 0x001ef801u) {
+        fprintf(stderr, "Invalid PPC mtmsr encoding at %08x, opcode = %08x\n",
+                pc(), opcode);
+        abort(); // Guest illegal-instruction exception is not wired yet.
+    }
+
+    const uint32 src = operand_RS::get(this, opcode);
+    const bool limited = (opcode & 0x00010000u) != 0;
+    if (!ppc32_regs_->mtmsr(src, limited)) {
+        fprintf(stderr, "Privileged PPC mtmsr in problem state at %08x\n", pc());
+        abort(); // Guest program exception is not wired yet.
+    }
+
+    // The next instruction is fetched after the MSR transition.
+    // The JIT and predecode loops end this block via CFLOW_JUMP.
+    increment_pc(4);
+#else
+    execute_illegal(opcode);
+#endif
+}
+
 void powerpc_cpu::execute_mfmsr(uint32 opcode)
 {
 #ifdef SHEEPSHAVER
