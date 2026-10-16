@@ -57,6 +57,17 @@
 #include "debug.h"
 
 // Safe only from ordinary CPU execution, never from host signal handlers.
+static inline void boot_debug_trip(const char *kind, uint32 pc, uint32 opcode)
+{
+#if defined(SHEEPSHAVER) && defined(__APPLE__)
+    // A failed guest opcode must never resume after the inspection window.
+    // The trip runs only on the ordinary CPU thread, not a signal handler.
+    SheepShaverBootDebuggerTrip(kind, pc, opcode);
+#else
+    (void)kind; (void)pc; (void)opcode;
+#endif
+}
+
 static inline void boot_debug_exception(const char *kind, uint32 pc, uint32 opcode)
 {
 #if defined(SHEEPSHAVER) && defined(__APPLE__)
@@ -76,7 +87,6 @@ static inline void boot_debug_exception(const char *kind, uint32 pc, uint32 opco
 
 void powerpc_cpu::execute_illegal(uint32 opcode)
 {
-	boot_debug_exception("illegal instruction", pc(), opcode);
 	fprintf(stderr, "Illegal instruction at %08x, opcode = %08x\n", pc(), opcode);
 
 #ifdef SHEEPSHAVER
@@ -85,6 +95,7 @@ void powerpc_cpu::execute_illegal(uint32 opcode)
 		return;
 	}
 #endif
+	boot_debug_exception("illegal instruction", pc(), opcode);
 
 #if ENABLE_MON
 	disass_ppc(stdout, pc(), opcode);
@@ -93,6 +104,7 @@ void powerpc_cpu::execute_illegal(uint32 opcode)
 	const char *arg[4] = {"mon", "-m", "-r", NULL};
 	mon(3, arg);
 #endif
+	boot_debug_trip("illegal instruction", pc(), opcode);
 	abort();
 }
 
@@ -110,6 +122,7 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 		boot_debug_exception("unusable rfi", pc(), opcode);
 		fprintf(stderr, "Unusable PPC rfi at %08x (opcode %08x, register bridge %s)\n",
 		        pc(), opcode, ppc32_regs_ ? "attached" : "missing");
+		boot_debug_trip("unusable rfi", pc(), opcode);
 		abort(); // Never pretend the CPU returned from an exception.
 	}
 
@@ -120,6 +133,7 @@ void powerpc_cpu::execute_rfi(uint32 opcode)
 	if (!ppc32_regs_->rfi(resume_pc)) {
 		boot_debug_exception("privileged rfi", pc(), opcode);
 		fprintf(stderr, "Privileged PPC rfi attempted in problem state at %08x\n", pc());
+		boot_debug_trip("privileged rfi", pc(), opcode);
 		abort(); // A guest program-exception path is not wired yet.
 	}
 
@@ -1223,6 +1237,7 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
         boot_debug_exception("invalid mtmsr", pc(), opcode);
         fprintf(stderr, "Invalid PPC mtmsr encoding at %08x, opcode = %08x\n",
                 pc(), opcode);
+        boot_debug_trip("invalid mtmsr", pc(), opcode);
         abort(); // Guest illegal-instruction exception is not wired yet.
     }
 
@@ -1234,6 +1249,7 @@ void powerpc_cpu::execute_mtmsr(uint32 opcode)
     if (!ppc32_regs_->mtmsr(src, limited)) {
         boot_debug_exception("privileged mtmsr", pc(), opcode);
         fprintf(stderr, "Privileged PPC mtmsr in problem state at %08x\n", pc());
+        boot_debug_trip("privileged mtmsr", pc(), opcode);
         abort(); // Guest program exception is not wired yet.
     }
 
@@ -1266,12 +1282,14 @@ void powerpc_cpu::execute_mfmsr(uint32 opcode)
 			boot_debug_exception("invalid mfmsr", pc(), opcode);
 			fprintf(stderr, "Invalid PPC mfmsr encoding at %08x, opcode = %08x\n",
 			        pc(), opcode);
+			boot_debug_trip("invalid mfmsr", pc(), opcode);
 			abort(); // Guest illegal-instruction exception is not wired yet.
 		}
 		uint32 value;
 		if (!ppc32_regs_->mfmsr(value)) {
 			boot_debug_exception("privileged mfmsr", pc(), opcode);
 			fprintf(stderr, "Privileged PPC mfmsr in problem state at %08x\n", pc());
+			boot_debug_trip("privileged mfmsr", pc(), opcode);
 			abort(); // Guest program exception is not wired yet.
 		}
 		operand_RD::set(this, opcode, value);
@@ -1298,8 +1316,11 @@ void powerpc_cpu::execute_mfspr(uint32 opcode)
 #ifdef SHEEPSHAVER
 	case powerpc_registers::SPR_SDR1:
 		d = 0xdead001f;
-		if (ppc32_regs_ && !ppc32_regs_->read_spr(spr, d))
+		if (ppc32_regs_ && !ppc32_regs_->read_spr(spr, d)) {
+			boot_debug_exception("SDR1 read failed", pc(), opcode);
+			boot_debug_trip("SDR1 read failed", pc(), opcode);
 			abort();
+		}
 		break;
 	case powerpc_registers::SPR_PVR: {
 		extern uint32 PVR;
@@ -1310,6 +1331,8 @@ void powerpc_cpu::execute_mfspr(uint32 opcode)
 		if (ppc32_regs_) {
 			if (!ppc32_regs_->read_spr(spr, d)) {
 				fprintf(stderr, "Unimplemented PowerPC SPR read %u at %08x\n", spr, pc());
+				boot_debug_exception("unimplemented mfspr", pc(), opcode);
+				boot_debug_trip("unimplemented mfspr", pc(), opcode);
 				abort();
 			}
 		} else {
@@ -1341,6 +1364,8 @@ void powerpc_cpu::execute_mtspr(uint32 opcode)
 			break; // Preserve SheepShaver's legacy non-UEA SPR behavior.
 		if (!ppc32_regs_->write_spr(spr, s)) {
 			fprintf(stderr, "Unimplemented PowerPC SPR write %u at %08x\n", spr, pc());
+			boot_debug_exception("unimplemented mtspr", pc(), opcode);
+			boot_debug_trip("unimplemented mtspr", pc(), opcode);
 			abort();
 		}
 		break;
