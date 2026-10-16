@@ -35,6 +35,10 @@
 #include "cpu/ppc/ppc-instructions.hpp"
 #include <vector>
 
+#ifdef SHEEPSHAVER
+class ppc32_registers;
+#endif
+
 class powerpc_cpu
 #ifndef SHEEPSHAVER
 	: public basic_cpu
@@ -117,6 +121,14 @@ public:
 	powerpc_vr const & vr(int i) const { return regs().vr[i]; }
 
 protected:
+
+#ifdef SHEEPSHAVER
+	// One supervisor register/MMU bridge per emulated CPU. No second MSR.
+	ppc32_registers *ppc32_regs_;
+public:
+	void attach_ppc32_registers(ppc32_registers *regs) { ppc32_regs_ = regs; }
+protected:
+#endif
 
 	// Condition codes management
 	void record_cr(int crfd, int32 value)
@@ -444,6 +456,7 @@ private:
 	template< class OP, class RD, class RA, class SH, class SO, class CA, class Rc >
 	void execute_shift(uint32 opcode);
 	void execute_syscall(uint32 opcode);
+	void execute_rfi(uint32 opcode);
 	template< bool OC >
 	void execute_fp_compare(uint32 opcode);
  	template< class RA, class RB, bool LD, bool DB, bool UP >
