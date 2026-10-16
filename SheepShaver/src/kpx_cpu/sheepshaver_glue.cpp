@@ -31,6 +31,7 @@
 #include "cpu/ppc/ppc-cpu.hpp"
 #include "cpu/ppc/ppc-operations.hpp"
 #include "cpu/ppc/ppc-instructions.hpp"
+#include "cpu/ppc/ppc-mmu-registers.hpp"
 #include "thunks.h"
 
 // Used for NativeOp trampolines
@@ -135,6 +136,8 @@ enum {
 class sheepshaver_cpu
 	: public powerpc_cpu
 {
+	// Shared PPC32 register/MMU model; not a duplicate address translator.
+	ppc32_registers supervisor_regs_;
 	void init_decoder();
 	void execute_sheep(uint32 opcode);
 
@@ -182,7 +185,12 @@ public:
 };
 
 sheepshaver_cpu::sheepshaver_cpu()
+	: supervisor_regs_(ppc32_guest_mmu(), 0)
 {
+	// Preserve SheepShaver's pre-existing emulated startup MSR until
+	// the firmware sets its own state through the supervisor instructions.
+	supervisor_regs_.set_msr(0xf072u);
+	attach_ppc32_registers(&supervisor_regs_);
 	init_decoder();
 
 #if PPC_ENABLE_JIT
