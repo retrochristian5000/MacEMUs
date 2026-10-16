@@ -159,30 +159,46 @@ static uint32 rsrc_ptr = 0;
 // id = 4711 means "find any ID"
 static uint32 find_rom_resource(uint32 s_type, int16 s_id = 4711, bool cont = false)
 {
-	uint32 lp = ROMBase + 0x1a;
-	uint32 x = ReadMacInt32(lp);
-	uint32 header_size = ReadMacInt8(ROMBase + x + 5);
-
+	// ROM identity alone does not validate the ROM's linked resource list.
+	// Follow only pointers within the 4 MiB decoded image, and bound chain
+	// traversal so a corrupted cycle cannot hang ROM patching.
+	const uint32 map = ReadMacInt32(ROMBase + 0x1a);
+	if (map > ROM_SIZE - 6) {
+		rsrc_ptr = 0;
+		return 0;
+	}
+	const uint32 header_size = ReadMacInt8(ROMBase + map + 5);
 	if (!cont)
-		rsrc_ptr = x;
+		rsrc_ptr = map;
 	else if (rsrc_ptr == 0)
 		return 0;
 
-	for (;;) {
-		lp = ROMBase + rsrc_ptr;
-		rsrc_ptr = ReadMacInt32(lp);
-		if (rsrc_ptr == 0)
+	// Each valid item includes at least a pointer and 10 bytes of metadata.
+	// A larger count is impossible in a finite, non-overlapping ROM chain.
+	for (uint32 visited = 0; visited < ROM_SIZE / 14; ++visited) {
+		if (rsrc_ptr > ROM_SIZE - 4)
 			break;
-
-		rsrc_ptr += header_size;
-
-		lp = ROMBase + rsrc_ptr + 4;
-		uint32 data = ReadMacInt32(lp);
-		uint32 type = ReadMacInt32(lp + 4);
-		int16 id = ReadMacInt16(lp + 8);
-		if (type == s_type && (id == s_id || s_id == 4711))
-			return data;
+		const uint32 next = ReadMacInt32(ROMBase + rsrc_ptr);
+		if (next == 0) {
+			rsrc_ptr = 0;
+			return 0;
+		}
+		// Metadata fields extend through next+header_size+13.
+		if (next > ROM_SIZE - 14 ||
+		    header_size > ROM_SIZE - 14 - next)
+			break;
+		rsrc_ptr = next + header_size;
+		const uint32 data = ReadMacInt32(ROMBase + rsrc_ptr + 4);
+		const uint32 type = ReadMacInt32(ROMBase + rsrc_ptr + 8);
+		const int16 id = ReadMacInt16(ROMBase + rsrc_ptr + 12);
+		if (type == s_type && (id == s_id || s_id == 4711)) {
+			// The caller treats data as an offset into the decoded ROM.
+			if (data < ROM_SIZE)
+				return data;
+			break;
+		}
 	}
+	rsrc_ptr = 0;
 	return 0;
 }
 
