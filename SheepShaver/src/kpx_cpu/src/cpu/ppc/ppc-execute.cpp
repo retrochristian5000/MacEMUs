@@ -32,6 +32,9 @@
 #include "cpu/ppc/ppc-operands.hpp"
 #include "cpu/ppc/ppc-operations.hpp"
 #include "cpu/ppc/ppc-execute.hpp"
+#ifdef SHEEPSHAVER
+#include "cpu/ppc/ppc-mmu-registers.hpp"
+#endif
 
 #ifndef SHEEPSHAVER
 #include "basic-kernel.hpp"
@@ -78,6 +81,31 @@ void powerpc_cpu::execute_illegal(uint32 opcode)
 void powerpc_cpu::execute_nop(uint32 opcode)
 {
 	increment_pc(4);
+}
+
+// 32-bit PowerPC Return From Interrupt: primary opcode 19, XO 50.
+// Reserved bits must be zero, and RFI is a privileged control-flow change.
+void powerpc_cpu::execute_rfi(uint32 opcode)
+{
+#ifdef SHEEPSHAVER
+	if (opcode != 0x4c000064u || ppc32_regs_ == NULL) {
+		fprintf(stderr, "Unusable PPC rfi at %08x (opcode %08x, register bridge %s)\n",
+		        pc(), opcode, ppc32_regs_ ? "attached" : "missing");
+		abort(); // Never pretend the CPU returned from an exception.
+	}
+
+	uint32 resume_pc;
+	if (!ppc32_regs_->rfi(resume_pc)) {
+		fprintf(stderr, "Privileged PPC rfi attempted in problem state at %08x\n", pc());
+		abort(); // A guest program-exception path is not wired yet.
+	}
+
+	// Reservation is lost on exception transitions; do not reuse a prior lwarx.
+	regs().reserve_valid = 0;
+	pc() = resume_pc; // Not pc + 4: RFI is a branch and ends the decode block.
+#else
+	execute_illegal(opcode);
+#endif
 }
 
 /**
