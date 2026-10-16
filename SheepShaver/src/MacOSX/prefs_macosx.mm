@@ -409,6 +409,22 @@ extern "C" int SheepShaverBootDebuggerTrip(const char *reason,
         "[FAULT TRIP] Guest halted. Copy Trace, then click Quit SheepShaver.");
     SheepShaverBootDebuggerPump();
 
+    // Keep a full snapshot of the bounded trace even if the host later
+    // crashes or is forcibly closed before the user can press Copy Trace.
+    NSString *logDir = [NSHomeDirectory() stringByAppendingPathComponent:
+        @"Library/Logs"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:logDir
+                               withIntermediateDirectories:YES
+                                                attributes:nil error:NULL];
+    NSString *tracePath = [logDir stringByAppendingPathComponent:
+        @"SheepShaver-Fault-Trace.log"];
+    NSError *writeError = nil;
+    if (![[boot_debug_text string] writeToFile:tracePath atomically:YES
+                                      encoding:NSUTF8StringEncoding
+                                         error:&writeError]) {
+        NSLog(@"SheepShaver fault trip: unable to save trace: %@", writeError);
+    }
+
     boot_debug_tripped = YES;
     [boot_debug_window setTitle:@"SheepShaver Boot Debugger — FAULT TRIPPED"];
     [boot_debug_quit_button setHidden:NO];
