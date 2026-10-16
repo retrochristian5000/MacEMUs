@@ -26,6 +26,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "sysdeps.h"
 #include "rom_patches.h"
@@ -274,6 +275,15 @@ void AddSifter(uint32 type, int16 id)
 	if (FindSifter(type, id))
 		return;
 	D(bug(" adding sifter type %c%c%c%c (%08x), id %d\n", type >> 24, (type >> 16) & 0xff, (type >> 8) & 0xff, type & 0xff, type, id));
+	// A ROM may contain more sound components than our legacy fixed-size
+	// bookkeeping allows. Do not write beyond sifter_list[32].
+	if (num_sifters >= int(sizeof(sifter_list) / sizeof(sifter_list[0]))) {
+		fprintf(stderr, "SheepShaver ROM: audio sifter table full (%u entries); "
+		        "skipping type=%08x id=%d\n",
+		        unsigned(sizeof(sifter_list) / sizeof(sifter_list[0])),
+		        unsigned(type), int(id));
+		return;
+	}
 	sifter_list[num_sifters].type = type;
 	sifter_list[num_sifters].id = id;
 	num_sifters++;
