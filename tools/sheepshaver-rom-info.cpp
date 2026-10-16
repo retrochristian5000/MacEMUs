@@ -34,15 +34,38 @@ int main(int argc, char **argv)
     std::fclose(f);
     std::vector<uint8_t> image(sheep_rom::kRomSize, 0);
     sheep_rom::Kind kind = sheep_rom::kInvalid;
+    sheep_rom::DecodeStatus status = sheep_rom::kDecodeBadArguments;
     const bool ok = sheep_rom::decode(file.data(), file.size(),
-                                     image.data(), image.size(), kind);
+                                     image.data(), image.size(), kind, &status);
     const char *format = file.size() == sheep_rom::kRomSize ? "plain 4 MiB" :
         (file.size() >= 11 && !memcmp(file.data(), "<CHRP-BOOT>", 11)
          ? "CHRP compressed" : "unrecognized");
     std::printf("ROM file bytes: %lu\nContainer: %s\n",
                 static_cast<unsigned long>(file.size()), format);
     if (!ok) {
-        std::fprintf(stderr, "ROM validation FAILED: malformed/unsupported container or decoded identity\n");
+        std::fprintf(stderr, "ROM validation FAILED: %s\n",
+                     sheep_rom::decode_status_string(status));
+        if (status == sheep_rom::kDecodeUnknownIdentity) {
+            // These 16 decoded bytes are metadata, not executable code.
+            std::fprintf(stderr, "Decoded identity at +0x30d064 (hex):");
+            for (unsigned i = 0; i < 16; ++i)
+                std::fprintf(stderr, " %02x", unsigned(image[0x30d064u + i]));
+            std::fprintf(stderr, "\n");
+        } else if (format[0] == 'C') {
+            uint32_t off = 0, bytes = 0;
+            bool found = sheep_rom::chrp_constant(
+                file.data(), file.size(), "constant parcels-offset", off) &&
+                sheep_rom::chrp_constant(
+                    file.data(), file.size(), "constant parcels-size", bytes);
+            if (!found)
+                found = sheep_rom::chrp_constant(
+                    file.data(), file.size(), "constant lzss-offset", off) &&
+                        sheep_rom::chrp_constant(
+                    file.data(), file.size(), "constant lzss-size", bytes);
+            if (found)
+                std::fprintf(stderr, "CHRP declared offset=0x%08x size=0x%08x\n",
+                             unsigned(off), unsigned(bytes));
+        }
         return 1;
     }
     std::printf("Decoded ROM: 4 MiB\nIdentity: %s\n",
