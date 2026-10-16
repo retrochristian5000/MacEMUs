@@ -138,6 +138,17 @@ int main(int argc, char **argv)
     }
     std::printf("Decoded ROM: 4 MiB\nIdentity: %s\n",
                 kind == sheep_rom::kNewWorld ? "NewWorld" : "OldWorld");
+    // These are raw ROM-header values, not the Mac OS release number or
+    // an authenticated ROM version. They can help compare ROM variants
+    // which decode to the same NewWorld identity.
+    const unsigned header_version =
+        (unsigned(image[8]) << 8) | unsigned(image[9]);
+    const unsigned header_subversion =
+        (unsigned(image[18]) << 8) | unsigned(image[19]);
+    std::printf("Decoded ROM header: checksum-field=%08x, "
+                "version-field=%04x, subversion-field=%04x\n",
+                unsigned(sheep_rom::probe_be32(image.data())),
+                header_version, header_subversion);
     // Status only: do not assert a particular NK entry shape for Old World.
     if (kind == sheep_rom::kNewWorld) {
         bool populated = false;
