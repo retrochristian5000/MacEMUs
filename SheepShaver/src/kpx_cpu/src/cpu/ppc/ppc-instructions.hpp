@@ -158,6 +158,7 @@ enum powerpc_instruction {
 	PPC_I(MTFSB1),
 	PPC_I(MTFSF),
 	PPC_I(MTFSFI),
+	PPC_I(MTMSR),
 	PPC_I(MTSPR),
 	PPC_I(MTVSCR),
 	PPC_I(MULHW),
