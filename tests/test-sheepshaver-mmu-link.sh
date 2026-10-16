@@ -24,7 +24,7 @@ do
         fail "missing ppc-mmu.cpp PBXFileReference: $proj"
     # 0846E497 is the kpx_cpu static library's Sources build phase in both projects.
     awk '
-      /0846E49714B124DE00574779 \/\* Sources \*\// { in_cpu = 1; next }
+      /0846E49714B124DE00574779 \/\* Sources \*\/ = \{/ { in_cpu = 1; next }
       in_cpu && /ppc-mmu.cpp in Sources/ { found = 1 }
       in_cpu && /^[[:space:]]*};/ { exit }
       END { exit !found }
