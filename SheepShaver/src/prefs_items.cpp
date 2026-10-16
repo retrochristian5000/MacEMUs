@@ -56,6 +56,7 @@ prefs_desc common_prefs_items[] = {
 	{"ignoresegv", TYPE_BOOLEAN, false, "ignore illegal memory accesses"},
 	{"ignoreillegal", TYPE_BOOLEAN, false, "ignore illegal instructions"},
 	{"ppc32supervisor", TYPE_BOOLEAN, false, "experimental PPC32 supervisor register execution (not full MMU boot support)"},
+	{"patchnanokernel", TYPE_BOOLEAN, false, "allow legacy nanokernel ROM instruction rewrites (disabled by default)"},
 	{"bootdebugger", TYPE_BOOLEAN, false, "show separate macOS boot-debugger window and PPC samples"},
 	{"jit", TYPE_BOOLEAN, false,        "enable JIT compiler"},
 	{"jit68k", TYPE_BOOLEAN, false,     "enable 68k DR emulator"},
@@ -103,6 +104,10 @@ void AddPrefsDefaults(void)
 	// Use the real PPC32 supervisor-register path by default. Legacy MSR
 	// stubs are available only through an explicit false preference.
 	PrefsAddBool("ppc32supervisor", true);
+	// Preserve guest nanokernel instructions by default while PPC32
+	// supervisor/MMU implementation is being validated. The historical
+	// patch stage remains available with patchnanokernel=true.
+	PrefsAddBool("patchnanokernel", false);
 	PrefsAddBool("bootdebugger", true);
 
 #if USE_JIT
