@@ -254,6 +254,7 @@ void powerpc_cpu::initialize()
 {
 #ifdef SHEEPSHAVER
 	printf("PowerPC CPU emulator by Gwenole Beauchesne\n");
+	ppc32_regs_ = 0;
 #endif
 
 #if PPC_PROFILE_REGS_USE
