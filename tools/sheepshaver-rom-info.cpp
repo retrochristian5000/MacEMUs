@@ -71,6 +71,44 @@ int main(int argc, char **argv)
                         static_cast<unsigned long>(bitmap));
         else
             std::puts("CHRP boot icon bitmap: not found in first 128 KiB");
+
+        // Report the bytes actually fed into the ROM decoder. A CHRP
+        // container includes boot-script/icon data; its size is NOT the
+        // compressed payload length or the decoded ROM capacity.
+        uint32_t payload_offset = 0, payload_size = 0;
+        const bool has_lzss =
+            sheep_rom::chrp_constant(file.data(), file.size(),
+                                     "constant lzss-offset", payload_offset) &&
+            sheep_rom::chrp_constant(file.data(), file.size(),
+                                     "constant lzss-size", payload_size);
+        bool found = has_lzss;
+        if (!found)
+            found = sheep_rom::chrp_constant(file.data(), file.size(),
+                                            "constant parcels-offset",
+                                            payload_offset) &&
+                    sheep_rom::chrp_constant(file.data(), file.size(),
+                                            "constant parcels-size",
+                                            payload_size);
+        if (found) {
+            std::printf("CHRP declared payload: %s offset=0x%08x size=%u bytes\n",
+                        has_lzss ? "lzss" : "parcels",
+                        unsigned(payload_offset), unsigned(payload_size));
+            if (payload_size && payload_offset <= file.size() &&
+                payload_size <= file.size() - payload_offset) {
+                const size_t payload_end = size_t(payload_offset) + payload_size;
+                std::printf("CHRP payload end: %lu; trailing container bytes: %lu\n",
+                            static_cast<unsigned long>(payload_end),
+                            static_cast<unsigned long>(file.size() - payload_end));
+                std::printf("CHRP payload / decoded ROM: %.2f%% "
+                            "(does not include outer boot script)\n",
+                            double(payload_size) * 100.0 /
+                            double(sheep_rom::kRomSize));
+            } else {
+                std::puts("CHRP payload bounds: invalid");
+            }
+        } else {
+            std::puts("CHRP declared payload: no matching lzss/parcels metadata");
+        }
     }
     if (!ok) {
         std::fprintf(stderr, "ROM validation FAILED: %s\n",
