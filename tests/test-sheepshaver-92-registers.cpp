@@ -46,6 +46,17 @@ int main() {
     v=0;
     assert(r.mfmsr(v)&&v==full_msr);
 
+    // Ordinary mtmsr preserves ME and LE, even if the source disagrees.
+    r.set_msr(ppc32_mmu::MSR_ME | ppc32_mmu::MSR_LE |
+              ppc32_mmu::MSR_IR);
+    assert(r.mtmsr(ppc32_mmu::MSR_EE, false));
+    assert(r.msr()==(ppc32_mmu::MSR_ME | ppc32_mmu::MSR_LE |
+                     ppc32_mmu::MSR_EE));
+    r.set_msr(0);
+    assert(r.mtmsr(ppc32_mmu::MSR_ME | ppc32_mmu::MSR_LE |
+                   ppc32_mmu::MSR_IR, false));
+    assert(r.msr()==ppc32_mmu::MSR_IR);
+
     // L=1 changes EE and RI only; other bits survive either operation.
     const uint32_t preserved = ppc32_mmu::MSR_IR | ppc32_mmu::MSR_DR |
         ppc32_mmu::MSR_FP;
