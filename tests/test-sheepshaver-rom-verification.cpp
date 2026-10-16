@@ -78,6 +78,9 @@ int main(int argc, char **argv)
     memcpy(rom.data() + 0x30d064, "Boot Gossamer", 13);
     assert(sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kOldWorld);
+    // Clear the longer OldWorld marker before testing the shorter NewWorld
+    // signature, otherwise five stale suffix bytes corrupt the LZSS fixture.
+    memset(rom.data() + 0x30d064, 0, 13);
     memcpy(rom.data() + 0x30d064, "NewWorld", 8);
     assert(sheep_rom::decode(rom.data(), rom.size(), decoded.data(), decoded.size(), kind));
     assert(kind == sheep_rom::kNewWorld);
