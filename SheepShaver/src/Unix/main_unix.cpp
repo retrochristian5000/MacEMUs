@@ -140,6 +140,7 @@
 
 #if SDL_PLATFORM_MACOS
 #include "utils_macosx.h"
+#include "boot_debugger.h"
 #endif
 
 #ifdef ENABLE_GTK
@@ -282,6 +283,13 @@ static void startup_report(const char *level, const char *detail)
 {
     fprintf(stderr, "SheepShaver [%s] %s: %s\n", startup_stage, level, detail);
     fflush(stderr);
+#if SDL_PLATFORM_MACOS
+    char dbg_line[224];
+    snprintf(dbg_line, sizeof(dbg_line), "[%s] %s: %s",
+             startup_stage, level, detail);
+    SheepShaverBootDebuggerLog(dbg_line);
+    SheepShaverBootDebuggerPump();
+#endif
 #if defined(__APPLE__) && defined(__MACH__)
     const char *home = getenv("HOME");
     if (home && home[0] == '/') {
@@ -993,6 +1001,11 @@ int main(int argc, char **argv)
 	startup_checkpoint("preferences");
 	PrefsInit(vmdir, argc, argv);
 	startup_preferences_ready = true;
+#if SDL_PLATFORM_MACOS
+	// Independent Cocoa diagnostics window, enabled by default. The existing
+	// SDL guest display is not replaced, and the window never starts a modal loop.
+	SheepShaverBootDebuggerOpen(PrefsFindBool("bootdebugger"));
+#endif
 	// Only use nogui preference if not passed as command line argument
 	if (use_gui == -1)
 		use_gui = !PrefsFindBool("nogui");
