@@ -25,7 +25,12 @@
 #error "Your compiler is not ANSI. Get a real one."
 #endif
 
+#ifdef MACEMUS_SHEEPSHAVER_MACOS_CONFIG
+// Prefer the native config even if an earlier Unix build generated config.h here.
+#include "../MacOSX/config/config.h"
+#else
 #include "config.h"
+#endif
 #include "user_strings_unix.h"
 
 //#ifndef STDC_HEADERS

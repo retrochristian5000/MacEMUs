@@ -709,7 +709,27 @@ $ make
 ```
 #### SheepShaver
 ##### macOS
-about changing Deployment Target: see BasiliskII
+
+To build SheepShaver with Apple's standalone Command Line Tools, install
+the tools and an SDL2-compatible library, then run make from the repository
+root. For example, with Homebrew:
+
+```sh
+xcode-select --install
+brew install sdl2-compat
+make -j4 sheepshaver SHEEPSHAVER_MACOS_BUILD=clt
+```
+
+This produces `build/SheepShaver/CommandLineTools/Release/SheepShaver.app`
+for the native Apple Silicon or Intel architecture. It uses the active
+macOS SDK, the existing Cocoa settings resources, and an ad hoc signature
+for local use. An installed SDL2.framework also works with
+`MACEMUS_SDL2_LINKAGE=framework`. The same backend selection works with
+`install-sheepshaver`, `sheepshaver-settings`, and `clean-sheepshaver`.
+Set `MACOSX_DEPLOYMENT_TARGET` to override the default of macOS 12.0.
+
+For the Xcode project build:
+
 ```
 $ cd macemu/SheepShaver/src/MacOSX
 $ xcodebuild build -project SheepShaver_Xcode8.xcodeproj -configuration Release

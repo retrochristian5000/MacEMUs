@@ -20,6 +20,14 @@ CONFIGURATION ?= Release
 BUILD_ROOT ?= $(CURDIR)/build
 XCODE_ARGS ?=
 CONFIGURE_ARGS ?=
+SHEEPSHAVER_MACOS_BUILD ?= xcode
+ifeq ($(MACEMUS_PLATFORM),macos)
+ifneq ($(SHEEPSHAVER_MACOS_BUILD),xcode)
+ifneq ($(SHEEPSHAVER_MACOS_BUILD),clt)
+$(error SHEEPSHAVER_MACOS_BUILD must be xcode or clt)
+endif
+endif
+endif
 
 # PREFIX is the installed layout; DESTDIR is the packaging/staging root.
 PREFIX ?= /usr/local
@@ -33,7 +41,12 @@ $(error INSTALL_FLAGS supports only -f)
 endif
 endif
 MACEMUS_BASILISK_APP ?= $(BUILD_ROOT)/BasiliskII/$(CONFIGURATION)/BasiliskII.app
+ifeq ($(MACEMUS_PLATFORM):$(SHEEPSHAVER_MACOS_BUILD),macos:clt)
+SHEEPSHAVER_CLT_DIR := $(BUILD_ROOT)/SheepShaver/CommandLineTools/$(CONFIGURATION)
+MACEMUS_SHEEPSHAVER_APP ?= $(SHEEPSHAVER_CLT_DIR)/SheepShaver.app
+else
 MACEMUS_SHEEPSHAVER_APP ?= $(BUILD_ROOT)/SheepShaver/$(CONFIGURATION)/SheepShaver.app
+endif
 
 # CPPFLAGS are compile-time preprocessing options (-I/-D/-U), not link flags.
 # Pass them to Xcode's C and C++ compiler settings, preserving native headers.
@@ -273,11 +286,31 @@ basilisk:
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
 		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) build
 
+ifeq ($(SHEEPSHAVER_MACOS_BUILD),clt)
+SHEEPSHAVER_CLT_MAKE = $(MAKE) -f SheepShaver/src/MacOSX/Makefile.clt \
+	BUILD_DIR="$(SHEEPSHAVER_CLT_DIR)" APP="$(MACEMUS_SHEEPSHAVER_APP)" \
+	ARCH="$(MACEMUS_HOST_ARCH)" CONFIGURATION="$(CONFIGURATION)" \
+	SDL2_LINKAGE="$(MACEMUS_SDL2_SELECTED)" SDL2_LIB_DIR="$(MACEMUS_SDL2_LIBRARY_DIR)" \
+	SDL2_INCLUDE_ROOT="$(MACEMUS_SDL2_INCLUDE_ROOT)" FRAMEWORK_DIR="$(MACEMUS_BREW_FRAMEWORKS)"
+
+sheepshaver:
+	+$(SHEEPSHAVER_CLT_MAKE) all
+
+clean-sheepshaver:
+	+$(SHEEPSHAVER_CLT_MAKE) clean
+else
 sheepshaver:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
 		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) build
+
+clean-sheepshaver:
+	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
+		-configuration $(CONFIGURATION) \
+		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
+		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) clean
+endif
 
 clean-basilisk:
 	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project BasiliskII/src/MacOSX/BasiliskII.xcodeproj -target BasiliskII \
@@ -288,12 +321,6 @@ clean-basilisk:
 		-configuration $(CONFIGURATION) \
 		SYMROOT="$(BUILD_ROOT)/BasiliskII" \
 		OBJROOT="$(BUILD_ROOT)/BasiliskII/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) clean
-
-clean-sheepshaver:
-	$(MACEMUS_XCODE_ENV) $(XCODEBUILD) -project SheepShaver/src/MacOSX/SheepShaver_Xcode8.xcodeproj -target SheepShaver \
-		-configuration $(CONFIGURATION) \
-		SYMROOT="$(BUILD_ROOT)/SheepShaver" \
-		OBJROOT="$(BUILD_ROOT)/SheepShaver/obj" $(MACEMUS_XCODE_BREW_ARGS) $(MACEMUS_XCODE_CPP_ARGS) $(MACEMUS_XCODE_LINK_ARGS) $(MACEMUS_XCODE_SDL_ARGS) $(XCODE_ARGS) $(MACEMUS_XCODE_NATIVE_ARGS) clean
 
 else
 ifeq ($(MACEMUS_PLATFORM),mingw)
@@ -378,6 +405,10 @@ test-sdl2-linkage:
 
 test-native-xcode:
 	@./tests/test-native-xcode.sh
+
+.PHONY: test-sheepshaver-clt
+test-sheepshaver-clt:
+	@sh ./tests/test-sheepshaver-clt.sh
 
 test-sheepshaver-startup:
 	@CXX="$(CXX)" ./tests/test-sheepshaver-startup.sh
@@ -474,6 +505,7 @@ help:
 		'  make all                 Build Basilisk II and SheepShaver (default)' \
 		'  make basilisk            Build Basilisk II only' \
 		'  make sheepshaver         Build SheepShaver only' \
+		'  make sheepshaver SHEEPSHAVER_MACOS_BUILD=clt  Use macOS Command Line Tools' \
 		'  make clean               Clean both emulator builds' \
 		'  make install             Install both emulators' \
 		'  make install             Reinstall existing macOS app bundles by default' \
@@ -485,6 +517,7 @@ help:
 		'  make test-homebrew-frameworks  Verify framework search paths' \
 		'  make test-sdl2-linkage   Check SDL2 library/framework selection' \
 		'  make test-native-xcode   Check native Xcode target selection' \
+		'  make test-sheepshaver-clt Check Command Line Tools build and bundle routing' \
 		'  make test-sheepshaver-startup  Check ROM and RAM startup limits' \
 		'  make test-sheepshaver-app-logging  Verify failure-stage tracing' \
 		'  make test-sheepshaver-configuration  Test ROM/configuration routing' \

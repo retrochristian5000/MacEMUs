@@ -1,0 +1,143 @@
+# Native macOS build driven by the root Makefile.
+.DEFAULT_GOAL := all
+.DELETE_ON_ERROR:
+
+ifndef BUILD_DIR
+$(error BUILD_DIR must be set by the root Makefile)
+endif
+ifeq ($(filter %.app,$(lastword $(APP))),)
+$(error APP must name a macOS app bundle)
+endif
+
+src := SheepShaver/src
+mac := $(src)/MacOSX
+kpx := $(src)/kpx_cpu
+build_rules := $(mac)/Makefile.clt
+obj_dir := $(BUILD_DIR)/obj
+
+empty :=
+space := $(empty) $(empty)
+make_path = $(subst $(space),\$(space),$(1))
+shell_quote = '$(subst ','"'"',$(1))'
+
+app_exe := $(call make_path,$(APP)/Contents/MacOS/SheepShaver)
+build_config := $(call make_path,$(obj_dir)/build-config)
+executable := $(call make_path,$(obj_dir)/SheepShaver)
+etherhelper := $(call make_path,$(obj_dir)/etherhelpertool)
+nib := $(mac)/Launcher/English.lproj/VMSettingsWindow.nib
+resources := $(mac)/SheepShaver.icns $(mac)/SheepVM.icns $(src)/slirp/COPYRIGHT $(src)/slirp/VERSION_
+
+# Use the native source set, config headers, and precompiled dyngen code
+# used by SheepShaver_Xcode8.xcodeproj.
+c_sources := pict.c Unix/sshpty.c Unix/strlcpy.c MacOSX/runtool.c SDL/SDLMain.m kpx_cpu/ppc-dis.c
+c_sources += $(addprefix slirp/,bootp.c cksum.c debug.c if.c ip_icmp.c ip_input.c ip_output.c \
+	mbuf.c misc.c sbuf.c slirp.c socket.c tcp_input.c tcp_output.c tcp_subr.c tcp_timer.c tftp.c udp.c)
+
+cxx_sources := adb.cpp audio.cpp bincue.cpp cdrom.cpp disk.cpp emul_op.cpp ether.cpp extfs.cpp gfxaccel.cpp \
+	macos_util.cpp main.cpp name_registry.cpp prefs.cpp prefs_items.cpp rom_patches.cpp rsrc_patches.cpp \
+	scsi.cpp serial.cpp sony.cpp thunks.cpp timer.cpp user_strings.cpp video.cpp xpram.cpp \
+	dummy/prefs_editor_dummy.cpp dummy/scsi_dummy.cpp
+cxx_sources += $(addprefix Unix/,about_window_unix.cpp disk_sparsebundle.cpp ether_unix.cpp \
+	main_unix.cpp prefs_unix.cpp rpc_unix.cpp serial_unix.cpp sys_unix.cpp timer_unix.cpp \
+	tinyxml2.cpp user_strings_unix.cpp xpram_unix.cpp)
+cxx_sources += $(addprefix MacOSX/,clip_macosx64.mm extfs_macosx.cpp Launcher/DiskType.m \
+	Launcher/VMSettingsController.mm prefs_macosx.mm sys_darwin.cpp utils_macosx.mm)
+cxx_sources += CrossPlatform/sigsegv.cpp CrossPlatform/video_blit.cpp CrossPlatform/vm_alloc.cpp \
+	SDL/audio_sdl.cpp SDL/video_sdl.cpp SDL/video_sdl2.cpp
+cxx_sources += kpx_cpu/sheepshaver_glue.cpp $(addprefix kpx_cpu/src/, \
+	cpu/jit/basic-dyngen.cpp cpu/jit/jit-cache.cpp cpu/ppc/ppc-cpu.cpp cpu/ppc/ppc-decode.cpp \
+	cpu/ppc/ppc-dyngen.cpp cpu/ppc/ppc-execute.cpp cpu/ppc/ppc-jit.cpp cpu/ppc/ppc-mmu.cpp \
+	cpu/ppc/ppc-translate.cpp mathlib/ieeefp.cpp mathlib/mathlib.cpp utils/utils-cpuinfo.cpp)
+
+sources := $(c_sources) $(cxx_sources)
+objects := $(foreach file,$(sources),$(call make_path,$(obj_dir)/$(file).o))
+
+XCRUN ?= xcrun
+PLUTIL ?= /usr/bin/plutil
+CODESIGN ?= /usr/bin/codesign
+MACOSX_DEPLOYMENT_TARGET ?= 12.0
+ifneq ($(MAKECMDGOALS),clean)
+SDKROOT ?= $(shell $(XCRUN) --sdk macosx --show-sdk-path 2>/dev/null)
+SDKROOT := $(SDKROOT)
+endif
+clang = $(XCRUN) --sdk macosx clang
+clangxx = $(XCRUN) --sdk macosx clang++
+target_flags = -arch "$(ARCH)" -isysroot "$(SDKROOT)" -mmacosx-version-min="$(MACOSX_DEPLOYMENT_TARGET)"
+optimization := $(if $(filter Debug,$(CONFIGURATION)),-O0 -g,-O3)
+defines := -DHAVE_CONFIG_H -D_GNU_SOURCE=1 -D_THREAD_SAFE -D_REENTRANT -DDATADIR= \
+	-DENABLE_MACOSX_ETHERHELPER -DBINCUE=1 -DUSE_SDL_AUDIO=1 -DMACEMUS_EXPECT_SDL2=1 \
+	-DMACEMUS_SHEEPSHAVER_MACOS_CONFIG
+includes := -I$(mac)/config -I$(src)/include -I$(src)/Unix/dyngen_precompiled -I$(src)/Unix \
+	-I$(mac)/Launcher -I$(src)/CrossPlatform -I$(src)/slirp -I$(kpx)/include -I$(kpx)/src
+framework_search :=
+ifneq ($(strip $(FRAMEWORK_DIR)),)
+framework_search += -F "$(FRAMEWORK_DIR)"
+endif
+framework_search += -F /Library/Frameworks
+ifeq ($(SDL2_LINKAGE),dylib)
+sdl2_include := $(or $(SDL2_INCLUDE_ROOT),$(SDL2_LIB_DIR)/../include)
+includes += -I"$(sdl2_include)" -I"$(sdl2_include)/SDL2"
+sdl2_lib := $(SDL2_LIB_DIR)/libSDL2.dylib
+sdl2_link := "$(sdl2_lib)"
+else
+ifneq ($(strip $(FRAMEWORK_DIR)),)
+includes += -I"$(FRAMEWORK_DIR)/SDL2.framework/Headers"
+endif
+includes += -I /Library/Frameworks/SDL2.framework/Headers
+sdl2_link := -framework SDL2
+endif
+frameworks := -framework Cocoa -framework Carbon -framework IOKit -framework Metal -framework Security
+ifeq ($(ARCH),x86_64)
+arch_link := -Wl,-pagezero_size,0x3000
+endif
+
+.PHONY: all clean FORCE
+all: $(app_exe)
+FORCE:
+
+# Rebuild when the effective SDK, target, or caller-supplied flags change.
+$(build_config): FORCE $(build_rules)
+	@test -d "$(SDKROOT)" || { printf '%s\n' 'macOS SDK unavailable. Install the Command Line Tools with xcode-select --install.' >&2; exit 1; }
+	@mkdir -p "$(obj_dir)"
+	@printf '%s\n' $(foreach setting,XCRUN SDKROOT ARCH MACOSX_DEPLOYMENT_TARGET CONFIGURATION \
+		SDL2_LINKAGE SDL2_LIB_DIR SDL2_INCLUDE_ROOT FRAMEWORK_DIR CPPFLAGS CFLAGS CXXFLAGS LDFLAGS, \
+		$(call shell_quote,$($(setting)))) > "$@.tmp"
+	@if cmp -s "$@.tmp" "$@"; then rm -f "$@.tmp"; else mv "$@.tmp" "$@"; fi
+
+$(call make_path,$(obj_dir))/%.o: $(src)/% $(build_config) $(build_rules)
+	@mkdir -p "$$(dirname "$@")"
+	$(if $(filter %.cpp %.mm,$<),$(clangxx) -std=gnu++14 $(optimization) $(CXXFLAGS),$(clang) -std=gnu11 $(optimization) $(CFLAGS)) \
+		$(target_flags) $(framework_search) $(includes) $(defines) $(CPPFLAGS) \
+		-MMD -MP -MF "$@.d" -MQ "$@" -c "$<" -o "$@"
+
+$(executable): $(objects) $(call make_path,$(sdl2_lib))
+	$(clangxx) $(target_flags) $(arch_link) $(framework_search) $(LDFLAGS) \
+		$(foreach file,$(sources),"$(obj_dir)/$(file).o") \
+		$(frameworks) $(sdl2_link) -Wl,-rpath,@executable_path/../Frameworks -o "$@"
+
+$(etherhelper): $(mac)/etherhelpertool.c $(build_config) $(build_rules)
+	$(clang) $(target_flags) "$<" -framework Security -o "$@"
+
+$(app_exe): $(executable) $(etherhelper) $(mac)/Info.plist.in $(mac)/SheepShaver.entitlements \
+		$(resources) $(wildcard $(nib)/*) $(build_rules)
+	@set -eu; \
+	app_parent=$$(dirname "$(APP)"); mkdir -p "$$app_parent"; \
+	stage=$$(mktemp -d "$$app_parent/.sheepshaver.XXXXXX"); \
+	trap 'rm -rf "$$stage"' EXIT; trap 'exit 1' HUP INT TERM; \
+	bundle="$$stage/SheepShaver.app"; contents="$$bundle/Contents"; \
+	mkdir -p "$$contents/MacOS" "$$contents/Resources/English.lproj"; \
+	cp "$(obj_dir)/SheepShaver" "$$contents/MacOS/"; \
+	cp "$(obj_dir)/etherhelpertool" $(resources) "$$contents/Resources/"; \
+	cp -R "$(nib)" "$$contents/Resources/English.lproj/"; \
+	sed -e 's/$$(PRODUCT_BUNDLE_IDENTIFIER)/net.cebix.sheepshaver/g' \
+		-e 's/$$(MARKETING_VERSION)/2.5/g' -e 's/$$(CURRENT_PROJECT_VERSION)/2.5/g' \
+		-e 's/$$(MACOSX_DEPLOYMENT_TARGET)/$(MACOSX_DEPLOYMENT_TARGET)/g' \
+		"$(mac)/Info.plist.in" > "$$contents/Info.plist"; \
+	$(PLUTIL) -lint "$$contents/Info.plist"; \
+	$(CODESIGN) --force --sign - --entitlements "$(mac)/SheepShaver.entitlements" "$$bundle"; \
+	rm -rf "$(APP)"; mv "$$bundle" "$(APP)"
+
+clean:
+	rm -rf "$(obj_dir)" "$(APP)"
+
+-include $(foreach file,$(sources),$(call make_path,$(obj_dir)/$(file).o.d))
