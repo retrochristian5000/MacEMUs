@@ -446,6 +446,11 @@ private:
 	void execute_mffs(uint32 opcode);
 	void execute_mfmsr(uint32 opcode);
 	void execute_mtmsr(uint32 opcode);
+	void execute_mfsr(uint32 opcode);
+	void execute_mfsrin(uint32 opcode);
+	void execute_mtsr(uint32 opcode);
+	void execute_mtsrin(uint32 opcode);
+	void execute_segment_register(uint32 opcode, bool indirect, bool write);
 	template< class SPR >
 	void execute_mfspr(uint32 opcode);
 	template< class TBR >

@@ -730,6 +730,16 @@ const powerpc_cpu::instr_info_t powerpc_cpu::powerpc_ii_table[] = {
 	  PPC_I(MFSPR),
 	  XFX_form, 31, 339, CFLOW_NORMAL
 	},
+	{ "mfsr",
+	  EXECUTE_0(mfsr),
+	  PPC_I(MFSR),
+	  X_form, 31, 595, CFLOW_NORMAL
+	},
+	{ "mfsrin",
+	  EXECUTE_0(mfsrin),
+	  PPC_I(MFSRIN),
+	  X_form, 31, 659, CFLOW_NORMAL
+	},
 	{ "mftb",
 	  EXECUTE_1(mftbr, operand_TBR),
 	  PPC_I(MFTB),
@@ -774,6 +784,16 @@ const powerpc_cpu::instr_info_t powerpc_cpu::powerpc_ii_table[] = {
 	  EXECUTE_1(mtspr, operand_SPR),
 	  PPC_I(MTSPR),
 	  XFX_form, 31, 467, CFLOW_NORMAL
+	},
+	{ "mtsr",
+	  EXECUTE_0(mtsr),
+	  PPC_I(MTSR),
+	  X_form, 31, 210, CFLOW_JUMP
+	},
+	{ "mtsrin",
+	  EXECUTE_0(mtsrin),
+	  PPC_I(MTSRIN),
+	  X_form, 31, 242, CFLOW_JUMP
 	},
 	{ "mtvscr",
 	  EXECUTE_0(mtvscr),

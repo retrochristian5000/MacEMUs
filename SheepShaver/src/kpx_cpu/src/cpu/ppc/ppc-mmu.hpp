@@ -194,7 +194,8 @@ struct ppc32_hotints_dsi {
 		dar = fault_ea;
 		/* Bit 1 = no translation / bit 4 = protection; bit 6 = store.
 		 * AlignmentInt and the NK's fault handler read these. */
-		dsisr = (fault ? fault : PPC32_FAULT_NOTRANS) | (is_store ? 0x02000000u : 0);
+		dsisr = (fault ? fault : uint32_t(PPC32_FAULT_NOTRANS)) |
+		        (is_store ? 0x02000000u : 0u);
 		vector = (srr1 & ppc32_mmu::MSR_IP) ? 0xfff00300u : 0x300u;
 		mmu.set_msr(mmu.msr() & ~ppc32_mmu::MSR_EXC_CLEAR);
 	}

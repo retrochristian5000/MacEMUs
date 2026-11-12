@@ -1303,6 +1303,64 @@ void powerpc_cpu::execute_mfmsr(uint32 opcode)
 	increment_pc(4);
 }
 
+void powerpc_cpu::execute_mfsr(uint32 opcode)
+{
+	execute_segment_register(opcode, false, false);
+}
+
+void powerpc_cpu::execute_mfsrin(uint32 opcode)
+{
+	execute_segment_register(opcode, true, false);
+}
+
+void powerpc_cpu::execute_mtsr(uint32 opcode)
+{
+	execute_segment_register(opcode, false, true);
+}
+
+void powerpc_cpu::execute_mtsrin(uint32 opcode)
+{
+	execute_segment_register(opcode, true, true);
+}
+
+void powerpc_cpu::execute_segment_register(uint32 opcode, bool indirect, bool write)
+{
+#ifdef SHEEPSHAVER
+	if (ppc32_regs_) {
+		// Direct: one reserved bit above SR, plus the unused RB field.
+		// Indirect: the entire field in the SR position is reserved.
+		const uint32 reserved = indirect ? 0x001f0001u : 0x0010f801u;
+		const char *fault = NULL;
+		if (opcode & reserved)
+			fault = "invalid segment register instruction";
+		else if (ppc32_regs_->msr() & ppc32_mmu::MSR_PR)
+			fault = "privileged segment register instruction";
+		if (fault) {
+			fprintf(stderr, "%s at %08x, opcode = %08x\n", fault, pc(), opcode);
+			boot_debug_exception(fault, pc(), opcode);
+			boot_debug_trip(fault, pc(), opcode);
+			abort(); // Guest program exception is not wired yet.
+		}
+
+		const unsigned segment = indirect ? operand_RB::get(this, opcode) >> 28
+		                                  : (opcode >> 16) & 0xfu;
+		if (write) {
+			ppc32_regs_->write_sr(segment, operand_RS::get(this, opcode));
+		} else {
+			uint32 value = 0;
+			ppc32_regs_->read_sr(segment, value);
+			operand_RD::set(this, opcode, value);
+		}
+		increment_pc(4);
+		return;
+	}
+#else
+	(void)indirect;
+	(void)write;
+#endif
+	execute_illegal(opcode);
+}
+
 template< class SPR >
 void powerpc_cpu::execute_mfspr(uint32 opcode)
 {
